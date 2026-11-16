@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+<!-- README.md -->
+# MYD Control · Sistema Integral de Gestión Administrativa, Operativa y Financiera
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**MYD Control** es una Single Page Application (SPA) desarrollada con **React, TypeScript, Firebase y AWS SES (vía Vercel Functions)**. Combina todos los requerimientos técnicos del **Proyecto Integrador del Módulo 4** (Gestor Estratégico de Tareas con persistencia en la nube, autenticación y notificaciones por correo) con las necesidades reales de gestión de obras, jornales de empleados, caja financiera, presupuestos y cierres semanales en PDF.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🌐 Demo en Producción
+- **URL Pública (Vercel):** `https://myd-control.vercel.app` *(Reemplazar por tu URL final tras el deploy)*
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🏗️ Decisiones Arquitectónicas y Estructura por Capas
 
-## Expanding the Oxlint configuration
+El proyecto se diseñó siguiendo una arquitectura modular por capas para separar claramente la interfaz de usuario de la lógica de negocio y el acceso a datos:
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+```text
+MYD_CONTROL/
+├── api/
+│   └── reports/
+│       └── send-email.ts          # Vercel Serverless Function con AWS SES SDK
+├── src/
+│   ├── components/                # Componentes UI reutilizables y desacoplados
+│   │   ├── layout/MainLayout.tsx  # Navegación responsive Mobile-First
+│   │   └── tasks/                 # TodoForm.tsx, TodoList.tsx y sus tests
+│   ├── contexts/
+│   │   └── AuthContext.tsx        # Estado global de sesión con onAuthStateChanged
+│   ├── hooks/
+│   │   └── useTasks.ts            # Custom hook con suscripción onSnapshot y cleanup
+│   ├── pages/                     # Vistas principales (Auth, Dashboard, Tasks, Works, Employees, Finance, Budgets, Reports)
+│   ├── routes/
+│   │   └── RequireAuth.tsx        # Protección de rutas privadas sin parpadeos de sesión
+│   ├── services/                  # Capa de integración externa (Firebase, Firestore, Email API)
+│   ├── types/
+│   │   └── index.ts               # Contratos e interfaces TypeScript estrictas (sin uso de any)
+│   └── utils/
+│       └── calculations.ts        # Funciones puras para cálculo de jornales y rentabilidad
+├── firestore.rules                # Reglas de aislamiento de datos por userId
+└── vite.config.ts                 # Configuración de Vite, Tailwind CSS y Vitest
