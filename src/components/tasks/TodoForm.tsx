@@ -90,18 +90,21 @@ export const TodoForm: React.FC<TodoFormProps> = ({
     return (
         <form
             onSubmit={handleSubmit}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4"
+            className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
             noValidate
         >
-            <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-white">
-                    {editingTask ? 'Editar Tarea' : 'Nueva Tarea Operativa'}
-                </h2>
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-3">
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-4 rounded-xs bg-[#F5C518]" />
+                    <h2 className="text-base font-bold text-[#171717]">
+                        {editingTask ? 'Editar Tarea Operativa' : 'Nueva Tarea Operativa'}
+                    </h2>
+                </div>
                 {editingTask && onCancelEdit && (
                     <button
                         type="button"
                         onClick={onCancelEdit}
-                        className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                        className="text-xs font-semibold text-[#717784] hover:text-[#171717] px-2.5 py-1 rounded-md bg-[#F5F6F8] border border-[#E5E7EB] cursor-pointer"
                     >
                         Cancelar edición
                     </button>
@@ -111,7 +114,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
             {validationError && (
                 <div
                     role="alert"
-                    className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs"
+                    className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium"
                 >
                     {validationError}
                 </div>
@@ -119,7 +122,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                    <label htmlFor="task-title" className="block text-xs font-medium text-slate-300 mb-1">
+                    <label htmlFor="task-title" className="block text-xs font-semibold text-[#171717] mb-1.5">
                         Título de la tarea *
                     </label>
                     <input
@@ -128,13 +131,13 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="Ej. Comprar materiales eléctricos para obra centro"
-                        className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717] focus:ring-2 focus:ring-[#F5C518]/40 transition"
                     />
                 </div>
 
                 <div className="md:col-span-2">
-                    <label htmlFor="task-desc" className="block text-xs font-medium text-slate-300 mb-1">
-                        Descripción / Detalles
+                    <label htmlFor="task-desc" className="block text-xs font-semibold text-[#171717] mb-1.5">
+                        Descripción / Detalles técnicos
                     </label>
                     <textarea
                         id="task-desc"
@@ -142,19 +145,19 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="Especificaciones, medidas o instrucciones para el personal..."
-                        className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717] focus:ring-2 focus:ring-[#F5C518]/40 transition"
                     />
                 </div>
 
                 <div>
-                    <label htmlFor="task-priority" className="block text-xs font-medium text-slate-300 mb-1">
-                        Prioridad
+                    <label htmlFor="task-priority" className="block text-xs font-semibold text-[#171717] mb-1.5">
+                        Nivel de Prioridad
                     </label>
                     <select
                         id="task-priority"
                         value={priority}
                         onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                        className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717]"
                     >
                         <option value="low">Baja</option>
                         <option value="medium">Media</option>
@@ -163,7 +166,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                 </div>
 
                 <div>
-                    <label htmlFor="task-due" className="block text-xs font-medium text-slate-300 mb-1">
+                    <label htmlFor="task-due" className="block text-xs font-semibold text-[#171717] mb-1.5">
                         Fecha de vencimiento
                     </label>
                     <input
@@ -171,20 +174,20 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                         type="date"
                         value={dueDate}
                         onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717]"
                     />
                 </div>
 
                 {worksOptions.length > 0 && (
                     <div>
-                        <label htmlFor="task-work" className="block text-xs font-medium text-slate-300 mb-1">
+                        <label htmlFor="task-work" className="block text-xs font-semibold text-[#171717] mb-1.5">
                             Obra asociada
                         </label>
                         <select
                             id="task-work"
                             value={workId}
                             onChange={(e) => setWorkId(e.target.value)}
-                            className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                            className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717]"
                         >
                             <option value="">Sin obra específica</option>
                             {worksOptions.map((w) => (
@@ -198,14 +201,14 @@ export const TodoForm: React.FC<TodoFormProps> = ({
 
                 {employeesOptions.length > 0 && (
                     <div>
-                        <label htmlFor="task-employee" className="block text-xs font-medium text-slate-300 mb-1">
+                        <label htmlFor="task-employee" className="block text-xs font-semibold text-[#171717] mb-1.5">
                             Empleado asignado
                         </label>
                         <select
                             id="task-employee"
                             value={employeeId}
                             onChange={(e) => setEmployeeId(e.target.value)}
-                            className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                            className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717]"
                         >
                             <option value="">Sin asignar</option>
                             {employeesOptions.map((emp) => (
@@ -218,11 +221,11 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                 )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2">
                 <button
                     type="submit"
                     disabled={submitting}
-                    className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold rounded-lg text-sm transition cursor-pointer"
+                    className="px-5 py-2.5 bg-[#F5C518] hover:bg-[#E0AD00] disabled:opacity-50 text-[#171717] font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer"
                 >
                     {submitting
                         ? 'Guardando...'

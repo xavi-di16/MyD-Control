@@ -13,10 +13,20 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm text-slate-300 font-medium">Verificando sesión en MYD Control...</p>
+            <div className="min-h-screen bg-[#F5F6F8] flex flex-col items-center justify-center p-6">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl shadow-sm p-8 max-w-sm w-full text-center space-y-4">
+                    <div className="w-12 h-12 rounded-lg bg-[#171717] text-[#F5C518] font-extrabold text-lg flex items-center justify-center mx-auto shadow-sm">
+                        MYD
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#F5C518] animate-ping" />
+                        <span className="text-sm font-semibold text-[#171717]">
+                            Verificando credenciales...
+                        </span>
+                    </div>
+                    <p className="text-xs text-[#717784]">
+                        Sincronizando sesión segura con MYD Control
+                    </p>
                 </div>
             </div>
         );
@@ -28,3 +38,5 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
 
     return <>{children}</>;
 };
+
+export default RequireAuth;

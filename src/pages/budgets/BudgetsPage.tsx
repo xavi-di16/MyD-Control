@@ -34,9 +34,7 @@ export const BudgetsPage: React.FC = () => {
             user.uid,
             (data) => {
                 setWorks(data);
-                if (data.length > 0 && !workId) {
-                    setWorkId(data[0].id);
-                }
+                setWorkId((prev) => prev || (data.length > 0 ? data[0].id : ''));
             },
             (err) => setError(err.message)
         );
@@ -87,53 +85,68 @@ export const BudgetsPage: React.FC = () => {
         worksMap[w.id] = w.name;
     });
 
+    const rubroLabels: Record<'material' | 'labor' | 'other', string> = {
+        material: 'Materiales',
+        labor: 'Mano de Obra',
+        other: 'Otros',
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            {/* Cabecera */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Presupuestos, Materiales y Rentabilidad</h1>
-                    <p className="text-sm text-slate-400">
-                        Comparativa de costos estimados vs. gastos reales de materiales y mano de obra
+                    <h1 className="text-2xl font-bold text-[#171717] tracking-tight">
+                        Presupuestos, Materiales y Rentabilidad
+                    </h1>
+                    <p className="text-xs text-[#717784] mt-0.5">
+                        Comparativa técnica de costos estimados vs. gastos reales de materiales y mano de obra
                     </p>
                 </div>
 
-                <select
-                    value={selectedWorkId}
-                    onChange={(e) => setSelectedWorkId(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white"
-                >
-                    <option value="all">Todas las obras</option>
-                    {works.map((w) => (
-                        <option key={w.id} value={w.id}>
-                            {w.name}
-                        </option>
-                    ))}
-                </select>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[#717784]">Filtrar por obra:</span>
+                    <select
+                        value={selectedWorkId}
+                        onChange={(e) => setSelectedWorkId(e.target.value)}
+                        className="px-3.5 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#171717]"
+                    >
+                        <option value="all">Todas las obras</option>
+                        {works.map((w) => (
+                            <option key={w.id} value={w.id}>
+                                {w.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs">
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
                     {error}
                 </div>
             )}
 
+            {/* Indicadores Comparativos */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Costo Total Presupuestado</p>
-                    <p className="text-xl font-bold text-white mt-1">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-semibold text-[#717784]">Costo Total Presupuestado</p>
+                    <p className="text-2xl font-extrabold font-mono-num text-[#171717] mt-2">
                         ${totalEstimated.toLocaleString('es-AR')}
                     </p>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Costo Real Ejecutado</p>
-                    <p className="text-xl font-bold text-amber-400 mt-1">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-semibold text-[#717784]">Costo Real Ejecutado</p>
+                    <p className="text-2xl font-extrabold font-mono-num text-[#171717] mt-2">
                         ${totalActual.toLocaleString('es-AR')}
                     </p>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Desvío (Ahorro / Sobrecosto)</p>
+                <div className="bg-[#171717] text-white rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-medium text-neutral-400">
+                        Resultado de Ejecución (Ahorro / Sobrecosto)
+                    </p>
                     <p
-                        className={`text-xl font-bold mt-1 ${variance >= 0 ? 'text-emerald-400' : 'text-red-400'
+                        className={`text-2xl font-extrabold font-mono-num mt-2 ${variance >= 0 ? 'text-[#F5C518]' : 'text-red-400'
                             }`}
                     >
                         {variance >= 0 ? '+' : ''}${variance.toLocaleString('es-AR')}
@@ -141,19 +154,24 @@ export const BudgetsPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Formulario de Alta de Ítem */}
             <form
                 onSubmit={handleSubmit}
-                className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4"
+                className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
             >
-                <h2 className="text-base font-semibold text-white">Agregar Insumo o Mano de Obra</h2>
+                <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3">
+                    <span className="w-2 h-4 rounded-xs bg-[#F5C518]" />
+                    <h2 className="text-base font-bold text-[#171717]">Agregar Insumo o Mano de Obra</h2>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Obra *</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Obra *</label>
                         <select
                             required
                             value={workId}
                             onChange={(e) => setWorkId(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         >
                             <option value="">Seleccionar...</option>
                             {works.map((w) => (
@@ -164,11 +182,11 @@ export const BudgetsPage: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Rubro</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Rubro</label>
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value as 'material' | 'labor' | 'other')}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         >
                             <option value="material">Materiales</option>
                             <option value="labor">Mano de Obra</option>
@@ -176,52 +194,58 @@ export const BudgetsPage: React.FC = () => {
                         </select>
                     </div>
                     <div className="sm:col-span-2">
-                        <label className="block text-xs text-slate-300 mb-1">Descripción del ítem *</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                            Descripción del ítem *
+                        </label>
                         <input
                             type="text"
                             required
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Ej. Placas Durlock / Cables 2.5mm"
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            placeholder="Ej. Placas Durlock / Rollos de cable 2.5mm"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Cantidad</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Cantidad</label>
                         <input
                             type="number"
                             min="1"
                             step="any"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-mono-num text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Unit. Estimado ($)</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                            Unit. Estimado ($)
+                        </label>
                         <input
                             type="number"
                             min="0"
                             value={unitEstimatedCost}
                             onChange={(e) => setUnitEstimatedCost(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-mono-num text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Unit. Real ($)</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                            Unit. Real ($)
+                        </label>
                         <input
                             type="number"
                             min="0"
                             value={unitActualCost}
                             onChange={(e) => setUnitActualCost(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-mono-num text-[#171717]"
                         />
                     </div>
                     <div className="flex items-end">
                         <button
                             type="submit"
                             disabled={works.length === 0}
-                            className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold rounded-lg text-xs cursor-pointer"
+                            className="w-full py-2 bg-[#F5C518] hover:bg-[#E0AD00] disabled:opacity-50 text-[#171717] font-bold rounded-lg text-xs transition cursor-pointer"
                         >
                             Agregar Ítem
                         </button>
@@ -229,45 +253,64 @@ export const BudgetsPage: React.FC = () => {
                 </div>
             </form>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 className="text-base font-semibold text-white mb-4">Desglose de Ítems Presupuestados</h2>
+            {/* Tabla Comparativa de Ítems */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs">
+                <h2 className="text-base font-bold text-[#171717] mb-4">
+                    Desglose de Ítems Presupuestados vs. Ejecutados
+                </h2>
                 {filteredItems.length === 0 ? (
-                    <p className="text-xs text-slate-400">No hay ítems cargados para el filtro seleccionado.</p>
+                    <p className="text-xs text-[#717784] py-6 text-center">
+                        No hay ítems cargados para el filtro seleccionado.
+                    </p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
                             <thead>
-                                <tr className="border-b border-slate-800 text-slate-400">
-                                    <th className="py-2 pr-3">Obra</th>
-                                    <th className="py-2 px-3">Rubro</th>
-                                    <th className="py-2 px-3">Descripción</th>
-                                    <th className="py-2 px-3">Cant.</th>
-                                    <th className="py-2 px-3">Subtotal Est.</th>
-                                    <th className="py-2 px-3">Subtotal Real</th>
-                                    <th className="py-2 pl-3">Acción</th>
+                                <tr className="border-b border-[#E5E7EB] text-[#717784] bg-[#F5F6F8]">
+                                    <th className="py-3 px-3 font-semibold">Obra</th>
+                                    <th className="py-3 px-3 font-semibold">Rubro</th>
+                                    <th className="py-3 px-3 font-semibold">Descripción</th>
+                                    <th className="py-3 px-3 font-semibold">Cant.</th>
+                                    <th className="py-3 px-3 font-semibold">Subtotal Est.</th>
+                                    <th className="py-3 px-3 font-semibold">Subtotal Real</th>
+                                    <th className="py-3 px-3 font-semibold">Desvío</th>
+                                    <th className="py-3 px-3 font-semibold text-right">Acción</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800">
+                            <tbody className="divide-y divide-[#E5E7EB]">
                                 {filteredItems.map((it) => {
                                     const subEst = it.quantity * it.unitEstimatedCost;
                                     const subReal = it.quantity * it.unitActualCost;
+                                    const diff = subEst - subReal;
                                     return (
-                                        <tr key={it.id}>
-                                            <td className="py-2.5 pr-3 text-amber-400 font-medium">
+                                        <tr key={it.id} className="hover:bg-[#F5F6F8]/60 transition">
+                                            <td className="py-3 px-3 font-bold text-[#171717]">
                                                 {worksMap[it.workId] || 'Obra'}
                                             </td>
-                                            <td className="py-2.5 px-3 text-slate-400 uppercase">{it.type}</td>
-                                            <td className="py-2.5 px-3 text-white">{it.description}</td>
-                                            <td className="py-2.5 px-3">{it.quantity}</td>
-                                            <td className="py-2.5 px-3">${subEst.toLocaleString('es-AR')}</td>
-                                            <td className="py-2.5 px-3 font-semibold text-emerald-400">
+                                            <td className="py-3 px-3">
+                                                <span className="px-2 py-0.5 rounded bg-[#F5F6F8] border border-[#E5E7EB] text-[11px] font-semibold text-[#171717]">
+                                                    {rubroLabels[it.type]}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-3 text-[#171717]">{it.description}</td>
+                                            <td className="py-3 px-3 font-mono-num">{it.quantity}</td>
+                                            <td className="py-3 px-3 font-mono-num text-[#717784]">
+                                                ${subEst.toLocaleString('es-AR')}
+                                            </td>
+                                            <td className="py-3 px-3 font-mono-num font-bold text-[#171717]">
                                                 ${subReal.toLocaleString('es-AR')}
                                             </td>
-                                            <td className="py-2.5 pl-3">
+                                            <td
+                                                className={`py-3 px-3 font-mono-num font-bold ${diff >= 0 ? 'text-emerald-700' : 'text-red-600'
+                                                    }`}
+                                            >
+                                                {diff >= 0 ? '+' : ''}${diff.toLocaleString('es-AR')}
+                                            </td>
+                                            <td className="py-3 px-3 text-right">
                                                 <button
                                                     type="button"
                                                     onClick={() => deleteBudgetItem(it.id)}
-                                                    className="text-red-400 hover:underline cursor-pointer"
+                                                    className="text-red-600 hover:text-red-800 font-semibold hover:underline cursor-pointer"
                                                 >
                                                     Eliminar
                                                 </button>

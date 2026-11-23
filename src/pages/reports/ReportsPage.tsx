@@ -66,51 +66,69 @@ export const ReportsPage: React.FC = () => {
 
     const handleDownloadPdf = () => {
         const doc = new jsPDF();
-        doc.setFontSize(16);
-        doc.text('MYD CONTROL - CIERRE E INFORME SEMANAL', 14, 20);
 
+        // Membrete Corporativo MYD Control (#171717 + franja #F5C518)
+        doc.setFillColor(23, 23, 23);
+        doc.rect(0, 0, 210, 32, 'F');
+        doc.setFillColor(245, 197, 24);
+        doc.rect(0, 32, 210, 2.5, 'F');
+
+        doc.setTextColor(245, 197, 24);
+        doc.setFontSize(18);
+        doc.text('MYD CONTROL', 14, 16);
+
+        doc.setTextColor(255, 255, 255);
         doc.setFontSize(10);
-        doc.text(`Período evaluado: ${startDate} al ${endDate}`, 14, 28);
-        doc.text(`Administrador: ${user?.email || 'MYD Admin'}`, 14, 34);
+        doc.text('INFORME EJECUTIVO DE CIERRE SEMANAL Y ESTADO FINANCIERO', 14, 24);
 
+        // Metadatos del reporte
+        doc.setTextColor(23, 23, 23);
+        doc.setFontSize(10);
+        doc.text(`Período auditado: ${startDate} al ${endDate}`, 14, 44);
+        doc.text(`Responsable / Administrador: ${user?.email || 'MYD Admin'}`, 14, 50);
+
+        // Bloque 1: Resumen Financiero
+        doc.setFillColor(245, 246, 248);
+        doc.rect(14, 56, 182, 34, 'F');
         doc.setFontSize(12);
-        doc.text('1. Resumen Financiero del Período', 14, 46);
+        doc.text('1. Balance Financiero del Período', 18, 64);
         doc.setFontSize(10);
-        doc.text(`- Ingresos totales: $${income.toLocaleString('es-AR')}`, 18, 54);
-        doc.text(`- Egresos operativos MYD: -$${mydExpense.toLocaleString('es-AR')}`, 18, 60);
-        doc.text(`- Gastos domésticos: -$${householdExpense.toLocaleString('es-AR')}`, 18, 66);
-        doc.text(`- Saldo Neto de Caja: $${netBalance.toLocaleString('es-AR')}`, 18, 72);
+        doc.text(`- Ingresos y cobranzas registradas: +$${income.toLocaleString('es-AR')}`, 20, 72);
+        doc.text(`- Egresos operativos MYD: -$${mydExpense.toLocaleString('es-AR')}`, 20, 78);
+        doc.text(`- Gastos domésticos registrados: -$${householdExpense.toLocaleString('es-AR')}`, 20, 84);
+        doc.text(`- SALDO NETO DE CAJA: $${netBalance.toLocaleString('es-AR')}`, 115, 84);
 
+        // Bloque 2: Estado Operativo
         doc.setFontSize(12);
-        doc.text('2. Estado de Jornales, Obras y Tareas', 14, 86);
+        doc.text('2. Estado de Jornales, Obras y Tareas', 14, 102);
         doc.setFontSize(10);
         doc.text(
-            `- Saldos pendientes a empleados: $${totalPayrollPending.toLocaleString('es-AR')}`,
+            `- Saldos pendientes de pago a empleados: $${totalPayrollPending.toLocaleString('es-AR')}`,
             18,
-            94
+            110
         );
         doc.text(
-            `- Cobranzas pendientes de obras: $${totalPendingCollections.toLocaleString('es-AR')}`,
+            `- Cobranzas pendientes de clientes por obras: $${totalPendingCollections.toLocaleString('es-AR')}`,
             18,
-            100
+            116
         );
         doc.text(
-            `- Obras activas: ${works.filter((w) => w.status === 'active').length} de ${works.length}`,
+            `- Obras en ejecución: ${works.filter((w) => w.status === 'active').length} de ${works.length} totales`,
             18,
-            106
+            122
         );
         doc.text(
-            `- Tareas completadas: ${tasks.filter((t) => t.status === 'completed').length} de ${tasks.length}`,
+            `- Tareas operativas completadas: ${tasks.filter((t) => t.status === 'completed').length} de ${tasks.length}`,
             18,
-            112
+            128
         );
 
         if (observations.trim()) {
             doc.setFontSize(12);
-            doc.text('3. Observaciones de Cierre', 14, 126);
+            doc.text('3. Observaciones de Cierre Administrativo', 14, 142);
             doc.setFontSize(10);
             const splitObs = doc.splitTextToSize(observations.trim(), 180);
-            doc.text(splitObs, 18, 134);
+            doc.text(splitObs, 18, 150);
         }
 
         doc.save(`MYD-Control-Cierre-${startDate}-a-${endDate}.pdf`);
@@ -136,19 +154,22 @@ export const ReportsPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            {/* Cabecera */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Reportes y Cierres Semanales</h1>
-                    <p className="text-sm text-slate-400">
-                        Generación de informe PDF descargable y envío de resumen por correo vía AWS SES
+                    <h1 className="text-2xl font-bold text-[#171717] tracking-tight">
+                        Informes y Cierres Semanales
+                    </h1>
+                    <p className="text-xs text-[#717784] mt-0.5">
+                        Auditoría por período, exportación de documento PDF corporativo y notificación vía AWS SES
                     </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                     <button
                         type="button"
                         onClick={handleDownloadPdf}
-                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-lg text-xs cursor-pointer"
+                        className="px-4 py-2.5 bg-[#F5C518] hover:bg-[#E0AD00] text-[#171717] font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer"
                     >
                         Descargar Informe PDF
                     </button>
@@ -156,7 +177,7 @@ export const ReportsPage: React.FC = () => {
                         type="button"
                         onClick={handleSendTasksEmail}
                         disabled={sendingEmail}
-                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-semibold rounded-lg text-xs cursor-pointer"
+                        className="px-4 py-2.5 bg-[#171717] hover:bg-[#252525] disabled:opacity-50 text-white font-semibold rounded-lg text-xs transition cursor-pointer"
                     >
                         {sendingEmail ? 'Enviando...' : 'Enviar Resumen por Email (AWS SES)'}
                     </button>
@@ -164,84 +185,108 @@ export const ReportsPage: React.FC = () => {
             </div>
 
             {emailStatus && (
-                <div className="p-3 bg-slate-900 border border-slate-700 rounded-lg text-xs text-amber-300">
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-900">
                     {emailStatus}
                 </div>
             )}
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
-                <h2 className="text-base font-semibold text-white">Filtro de Período de Cierre</h2>
+            {/* Configuración del Período y Observaciones */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4">
+                <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3">
+                    <span className="w-2 h-4 rounded-xs bg-[#F5C518]" />
+                    <h2 className="text-base font-bold text-[#171717]">
+                        Parámetros del Período de Cierre
+                    </h2>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Fecha Desde</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Fecha Desde</label>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3.5 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Fecha Hasta</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Fecha Hasta</label>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3.5 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-xs text-slate-300 mb-1">
-                        Observaciones del Administrador (se incluyen en el PDF)
+                    <label className="block text-xs font-semibold text-[#171717] mb-1">
+                        Observaciones Ejecutivas del Administrador (se incluyen en el documento PDF)
                     </label>
                     <textarea
                         rows={2}
                         value={observations}
                         onChange={(e) => setObservations(e.target.value)}
                         placeholder="Notas sobre entregas de materiales, pagos de clientes o cierres de viernes..."
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                        className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                     />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Ingresos del Período</p>
-                    <p className="text-lg font-bold text-emerald-400 mt-1">
-                        +${income.toLocaleString('es-AR')}
-                    </p>
+            {/* Vista Previa del Dossier de Cierre */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-2xs">
+                <div className="bg-[#171717] text-white px-6 py-4 flex items-center justify-between border-b-2 border-[#F5C518]">
+                    <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#F5C518] block">
+                            VISTA PREVIA DEL INFORME
+                        </span>
+                        <h3 className="text-sm font-bold">
+                            Balance Consolidado ({startDate} al {endDate})
+                        </h3>
+                    </div>
+                    <span className="text-xs font-mono-num text-neutral-400">
+                        {periodMovements.length} movimientos en el período
+                    </span>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Gastos MYD / Domésticos</p>
-                    <p className="text-lg font-bold text-red-400 mt-1">
-                        -${mydExpense.toLocaleString('es-AR')} / -${householdExpense.toLocaleString('es-AR')}
-                    </p>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Saldo Neto del Período</p>
-                    <p className="text-lg font-bold text-amber-400 mt-1">
-                        ${netBalance.toLocaleString('es-AR')}
-                    </p>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Deuda Pendiente de Jornales</p>
-                    <p className="text-lg font-bold text-red-300 mt-1">
-                        ${totalPayrollPending.toLocaleString('es-AR')}
-                    </p>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Cobranzas por Recibir (Obras)</p>
-                    <p className="text-lg font-bold text-sky-400 mt-1">
-                        ${totalPendingCollections.toLocaleString('es-AR')}
-                    </p>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Avance de Tareas</p>
-                    <p className="text-lg font-bold text-white mt-1">
-                        {tasks.filter((t) => t.status === 'completed').length} / {tasks.length} completadas
-                    </p>
+
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB]">
+                        <p className="text-xs font-semibold text-[#717784]">Ingresos del Período</p>
+                        <p className="text-xl font-extrabold font-mono-num text-emerald-700 mt-1">
+                            +${income.toLocaleString('es-AR')}
+                        </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB]">
+                        <p className="text-xs font-semibold text-[#717784]">Gastos MYD / Domésticos</p>
+                        <p className="text-xl font-extrabold font-mono-num text-red-600 mt-1">
+                            -${mydExpense.toLocaleString('es-AR')} / -${householdExpense.toLocaleString('es-AR')}
+                        </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#171717] text-white">
+                        <p className="text-xs font-medium text-neutral-400">Saldo Neto del Período</p>
+                        <p className="text-xl font-extrabold font-mono-num text-[#F5C518] mt-1">
+                            ${netBalance.toLocaleString('es-AR')}
+                        </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB]">
+                        <p className="text-xs font-semibold text-[#717784]">Deuda Pendiente de Jornales</p>
+                        <p className="text-xl font-extrabold font-mono-num text-amber-700 mt-1">
+                            ${totalPayrollPending.toLocaleString('es-AR')}
+                        </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB]">
+                        <p className="text-xs font-semibold text-[#717784]">Cobranzas por Recibir (Obras)</p>
+                        <p className="text-xl font-extrabold font-mono-num text-[#171717] mt-1">
+                            ${totalPendingCollections.toLocaleString('es-AR')}
+                        </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB]">
+                        <p className="text-xs font-semibold text-[#717784]">Cumplimiento de Tareas</p>
+                        <p className="text-xl font-extrabold font-mono-num text-[#171717] mt-1">
+                            {tasks.filter((t) => t.status === 'completed').length} / {tasks.length} completadas
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

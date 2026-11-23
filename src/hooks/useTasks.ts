@@ -120,6 +120,7 @@ export const useTasks = () => {
         addTask,
         editTask,
         toggleStatus,
+        toggleTaskStatus: toggleStatus,
         removeTask,
         getFilteredTasks,
     };

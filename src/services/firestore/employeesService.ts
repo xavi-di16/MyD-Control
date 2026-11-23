@@ -51,13 +51,14 @@ export const createEmployee = async (input: {
     name: string;
     role: string;
     dailyRate: number;
+    active?: boolean;
 }): Promise<string> => {
     const docRef = await addDoc(collection(db, EMPLOYEES_COLLECTION), {
         userId: input.userId,
         name: input.name.trim(),
         role: input.role.trim() || 'Operario',
         dailyRate: Number(input.dailyRate) || 0,
-        active: true,
+        active: input.active ?? true,
         createdAt: new Date().toISOString(),
     });
     return docRef.id;
@@ -122,7 +123,9 @@ export const createPayrollRecord = async (input: {
     dailyRate: number;
     advances: number;
     reimbursements: number;
+    totalLiquidated?: number;
     paidAmount: number;
+    status?: 'pending' | 'partial' | 'paid';
 }): Promise<string> => {
     const calc = calculatePayroll({
         daysWorked: input.daysWorked,
@@ -143,13 +146,23 @@ export const createPayrollRecord = async (input: {
         dailyRate: Number(input.dailyRate),
         advances: Number(input.advances),
         reimbursements: Number(input.reimbursements),
-        totalLiquidated: calc.totalLiquidated,
+        totalLiquidated: input.totalLiquidated ?? calc.totalLiquidated,
         paidAmount: Number(input.paidAmount),
-        status: calc.status,
+        status: input.status ?? calc.status,
         createdAt: new Date().toISOString(),
     });
 
     return docRef.id;
+};
+
+export const markPayrollPaid = async (
+    payrollId: string,
+    totalLiquidated: number
+): Promise<void> => {
+    await updateDoc(doc(db, PAYROLLS_COLLECTION, payrollId), {
+        paidAmount: totalLiquidated,
+        status: 'paid',
+    });
 };
 
 export const registerPayrollPayment = async (

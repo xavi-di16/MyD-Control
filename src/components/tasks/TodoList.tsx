@@ -12,9 +12,9 @@ interface TodoListProps {
 }
 
 const priorityBadge: Record<Task['priority'], { label: string; classes: string }> = {
-    high: { label: 'Alta', classes: 'bg-red-500/15 text-red-300 border-red-500/30' },
-    medium: { label: 'Media', classes: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
-    low: { label: 'Baja', classes: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
+    high: { label: 'Alta', classes: 'bg-red-50 text-red-700 border-red-200' },
+    medium: { label: 'Media', classes: 'bg-amber-50 text-amber-800 border-amber-200' },
+    low: { label: 'Baja', classes: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
 };
 
 export const TodoList: React.FC<TodoListProps> = ({
@@ -27,8 +27,10 @@ export const TodoList: React.FC<TodoListProps> = ({
 }) => {
     if (tasks.length === 0) {
         return (
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center">
-                <p className="text-sm text-slate-400">No hay tareas para mostrar con los filtros actuales.</p>
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-10 text-center shadow-2xs">
+                <p className="text-sm font-medium text-[#717784]">
+                    No hay tareas para mostrar con los filtros actuales.
+                </p>
             </div>
         );
     }
@@ -42,47 +44,55 @@ export const TodoList: React.FC<TodoListProps> = ({
                 return (
                     <div
                         key={task.id}
-                        className={`bg-slate-900 border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition ${isCompleted ? 'border-slate-800/60 opacity-70' : 'border-slate-800'
+                        className={`bg-white border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition shadow-2xs ${isCompleted
+                                ? 'border-[#E5E7EB] bg-[#F5F6F8]/60 opacity-75'
+                                : 'border-[#E5E7EB] hover:border-neutral-300'
                             }`}
                     >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-3.5">
                             <input
                                 type="checkbox"
                                 aria-label={`Marcar ${task.title}`}
                                 checked={isCompleted}
                                 onChange={() => onToggle(task)}
-                                className="mt-1 h-4 w-4 accent-amber-500 rounded cursor-pointer"
+                                className="mt-1 h-4 w-4 accent-[#171717] rounded cursor-pointer"
                             />
                             <div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h3
-                                        className={`text-sm font-semibold ${isCompleted ? 'line-through text-slate-400' : 'text-white'
+                                        className={`text-sm font-bold ${isCompleted ? 'line-through text-[#717784]' : 'text-[#171717]'
                                             }`}
                                     >
                                         {task.title}
                                     </h3>
                                     <span
-                                        className={`text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.classes}`}
+                                        className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold ${badge.classes}`}
                                     >
                                         Prioridad {badge.label}
                                     </span>
                                     {task.dueDate && (
-                                        <span className="text-[11px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                                        <span className="text-[11px] font-mono-num text-[#717784] bg-[#F5F6F8] border border-[#E5E7EB] px-2 py-0.5 rounded">
                                             Vence: {task.dueDate}
                                         </span>
                                     )}
                                 </div>
 
                                 {task.description && (
-                                    <p className="text-xs text-slate-400 mt-1">{task.description}</p>
+                                    <p className="text-xs text-[#717784] mt-1 leading-relaxed">
+                                        {task.description}
+                                    </p>
                                 )}
 
-                                <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-400">
+                                <div className="flex flex-wrap gap-3 mt-2.5 text-xs text-[#717784]">
                                     {task.workId && worksMap[task.workId] && (
-                                        <span>Obra: <strong className="text-slate-200">{worksMap[task.workId]}</strong></span>
+                                        <span className="px-2 py-0.5 rounded bg-[#F5F6F8] border border-[#E5E7EB]">
+                                            Obra: <strong className="text-[#171717]">{worksMap[task.workId]}</strong>
+                                        </span>
                                     )}
                                     {task.employeeId && employeesMap[task.employeeId] && (
-                                        <span>Asignado: <strong className="text-slate-200">{employeesMap[task.employeeId]}</strong></span>
+                                        <span className="px-2 py-0.5 rounded bg-[#F5F6F8] border border-[#E5E7EB]">
+                                            Asignado: <strong className="text-[#171717]">{employeesMap[task.employeeId]}</strong>
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -92,14 +102,14 @@ export const TodoList: React.FC<TodoListProps> = ({
                             <button
                                 type="button"
                                 onClick={() => onEdit(task)}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition cursor-pointer"
+                                className="px-3 py-1.5 bg-[#F5F6F8] hover:bg-neutral-200 text-[#171717] border border-[#E5E7EB] rounded-lg text-xs font-semibold transition cursor-pointer"
                             >
                                 Editar
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onDelete(task.id)}
-                                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg text-xs font-medium transition cursor-pointer"
+                                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold transition cursor-pointer"
                             >
                                 Eliminar
                             </button>

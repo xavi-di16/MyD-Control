@@ -81,13 +81,21 @@ export const FinancePage: React.FC = () => {
 
     const availableBalance = totalIncome - totalMydExpenses - totalHouseholdExpenses;
 
+    const worksMap: Record<string, string> = {};
+    works.forEach((w) => {
+        worksMap[w.id] = w.name;
+    });
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            {/* Cabecera */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Caja y Movimientos Financieros</h1>
-                    <p className="text-sm text-slate-400">
-                        Control separado de Caja MYD (Obras, Cobranzas, Deudas) y Gastos Domésticos
+                    <h1 className="text-2xl font-bold text-[#171717] tracking-tight">
+                        Caja y Movimientos Financieros
+                    </h1>
+                    <p className="text-xs text-[#717784] mt-0.5">
+                        Control contable separado de Caja MYD (Obras, Cobranzas, Deudas) y Gastos Domésticos
                     </p>
                 </div>
 
@@ -97,9 +105,9 @@ export const FinancePage: React.FC = () => {
                             key={acc}
                             type="button"
                             onClick={() => setAccountFilter(acc)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${accountFilter === acc
-                                    ? 'bg-amber-500 text-slate-950 font-semibold'
-                                    : 'bg-slate-900 text-slate-300 border border-slate-800'
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${accountFilter === acc
+                                    ? 'bg-[#171717] text-[#F5C518]'
+                                    : 'bg-[#F5F6F8] text-[#717784] hover:text-[#171717] border border-[#E5E7EB]'
                                 }`}
                         >
                             {acc === 'all' ? 'Todas las Cajas' : acc === 'myd' ? 'Caja MYD' : 'Caja Doméstica'}
@@ -109,34 +117,35 @@ export const FinancePage: React.FC = () => {
             </div>
 
             {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs">
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
                     {error}
                 </div>
             )}
 
+            {/* Tarjetas de Resumen Financiero */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Ingresos / Cobranzas</p>
-                    <p className="text-xl font-bold text-emerald-400 mt-1">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-semibold text-[#717784]">Ingresos / Cobranzas</p>
+                    <p className="text-2xl font-extrabold font-mono-num text-emerald-700 mt-2">
                         +${totalIncome.toLocaleString('es-AR')}
                     </p>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Egresos Operativos MYD</p>
-                    <p className="text-xl font-bold text-red-400 mt-1">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-semibold text-[#717784]">Egresos Operativos MYD</p>
+                    <p className="text-2xl font-extrabold font-mono-num text-red-600 mt-2">
                         -${totalMydExpenses.toLocaleString('es-AR')}
                     </p>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Gastos Domésticos</p>
-                    <p className="text-xl font-bold text-sky-400 mt-1">
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-semibold text-[#717784]">Gastos Domésticos</p>
+                    <p className="text-2xl font-extrabold font-mono-num text-[#171717] mt-2">
                         -${totalHouseholdExpenses.toLocaleString('es-AR')}
                     </p>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                    <p className="text-xs text-slate-400">Saldo Neto Disponible</p>
+                <div className="bg-[#171717] text-white rounded-xl p-5 shadow-2xs">
+                    <p className="text-xs font-medium text-neutral-400">Saldo Neto Disponible</p>
                     <p
-                        className={`text-xl font-bold mt-1 ${availableBalance >= 0 ? 'text-amber-400' : 'text-red-400'
+                        className={`text-2xl font-extrabold font-mono-num mt-2 ${availableBalance >= 0 ? 'text-[#F5C518]' : 'text-red-400'
                             }`}
                     >
                         ${availableBalance.toLocaleString('es-AR')}
@@ -144,40 +153,45 @@ export const FinancePage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Formulario de Registro de Movimiento */}
             <form
                 onSubmit={handleSubmit}
-                className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4"
+                className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
             >
-                <h2 className="text-base font-semibold text-white">Registrar Movimiento de Caja</h2>
+                <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3">
+                    <span className="w-2 h-4 rounded-xs bg-[#F5C518]" />
+                    <h2 className="text-base font-bold text-[#171717]">Registrar Movimiento de Caja</h2>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Tipo</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Tipo</label>
                         <select
                             value={type}
                             onChange={(e) => setType(e.target.value as MovementType)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#171717]"
                         >
                             <option value="income">Ingreso (+)</option>
                             <option value="expense">Egreso (-)</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Cuenta</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Cuenta</label>
                         <select
                             value={account}
                             onChange={(e) => setAccount(e.target.value as AccountType)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#171717]"
                         >
                             <option value="myd">Negocio (MYD)</option>
                             <option value="household">Doméstico</option>
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Categoría</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Categoría</label>
                         <select
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         >
                             <option value="Cobranza Obra">Cobranza Obra</option>
                             <option value="Materiales">Materiales</option>
@@ -188,7 +202,7 @@ export const FinancePage: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Importe ($) *</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Importe ($) *</label>
                         <input
                             type="number"
                             min="0"
@@ -197,24 +211,26 @@ export const FinancePage: React.FC = () => {
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="Ej. 45000"
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-mono-num text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Fecha</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">Fecha</label>
                         <input
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-slate-300 mb-1">Obra (Opcional)</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                            Obra (Opcional)
+                        </label>
                         <select
                             value={workId}
                             onChange={(e) => setWorkId(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         >
                             <option value="">General</option>
                             {works.map((w) => (
@@ -225,20 +241,22 @@ export const FinancePage: React.FC = () => {
                         </select>
                     </div>
                     <div className="sm:col-span-3 lg:col-span-5">
-                        <label className="block text-xs text-slate-300 mb-1">Concepto / Detalle *</label>
+                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                            Concepto / Descripción detallada *
+                        </label>
                         <input
                             type="text"
                             required
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Ej. Compra de bolsas de cemento y cables en corralón"
-                            className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                            className="w-full px-3 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         />
                     </div>
                     <div className="flex items-end">
                         <button
                             type="submit"
-                            className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-lg text-xs cursor-pointer"
+                            className="w-full py-2 bg-[#F5C518] hover:bg-[#E0AD00] text-[#171717] font-bold rounded-lg text-xs transition cursor-pointer"
                         >
                             Guardar
                         </button>
@@ -246,50 +264,60 @@ export const FinancePage: React.FC = () => {
                 </div>
             </form>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-                <h2 className="text-base font-semibold text-white mb-4">Libro Diario de Movimientos</h2>
+            {/* Tabla del Libro Diario */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs">
+                <h2 className="text-base font-bold text-[#171717] mb-4">Libro Diario de Movimientos</h2>
                 {filteredMovements.length === 0 ? (
-                    <p className="text-xs text-slate-400">No hay movimientos registrados en este filtro.</p>
+                    <p className="text-xs text-[#717784] py-6 text-center">
+                        No hay movimientos registrados en este filtro.
+                    </p>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
                             <thead>
-                                <tr className="border-b border-slate-800 text-slate-400">
-                                    <th className="py-2 pr-3">Fecha</th>
-                                    <th className="py-2 px-3">Cuenta</th>
-                                    <th className="py-2 px-3">Categoría</th>
-                                    <th className="py-2 px-3">Detalle</th>
-                                    <th className="py-2 px-3">Importe</th>
-                                    <th className="py-2 pl-3">Acción</th>
+                                <tr className="border-b border-[#E5E7EB] text-[#717784] bg-[#F5F6F8]">
+                                    <th className="py-3 px-3 font-semibold">Fecha</th>
+                                    <th className="py-3 px-3 font-semibold">Cuenta</th>
+                                    <th className="py-3 px-3 font-semibold">Categoría</th>
+                                    <th className="py-3 px-3 font-semibold">Detalle</th>
+                                    <th className="py-3 px-3 font-semibold">Importe</th>
+                                    <th className="py-3 px-3 font-semibold text-right">Acción</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800">
+                            <tbody className="divide-y divide-[#E5E7EB]">
                                 {filteredMovements.map((mov) => (
-                                    <tr key={mov.id}>
-                                        <td className="py-2.5 pr-3 text-slate-400">{mov.date}</td>
-                                        <td className="py-2.5 px-3">
+                                    <tr key={mov.id} className="hover:bg-[#F5F6F8]/60 transition">
+                                        <td className="py-3 px-3 font-mono-num text-[#717784]">{mov.date}</td>
+                                        <td className="py-3 px-3">
                                             <span
-                                                className={`px-2 py-0.5 rounded text-[11px] font-medium ${mov.account === 'myd'
-                                                        ? 'bg-amber-500/15 text-amber-300'
-                                                        : 'bg-sky-500/15 text-sky-300'
+                                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${mov.account === 'myd'
+                                                        ? 'bg-[#171717] text-[#F5C518]'
+                                                        : 'bg-neutral-100 text-neutral-700 border border-neutral-300'
                                                     }`}
                                             >
                                                 {mov.account === 'myd' ? 'MYD' : 'Doméstico'}
                                             </span>
                                         </td>
-                                        <td className="py-2.5 px-3 text-slate-300">{mov.category}</td>
-                                        <td className="py-2.5 px-3 text-white">{mov.description}</td>
+                                        <td className="py-3 px-3 font-medium text-[#171717]">{mov.category}</td>
+                                        <td className="py-3 px-3 text-[#171717]">
+                                            {mov.description}
+                                            {mov.workId && worksMap[mov.workId] && (
+                                                <span className="ml-2 text-[11px] text-[#717784]">
+                                                    · Obra: {worksMap[mov.workId]}
+                                                </span>
+                                            )}
+                                        </td>
                                         <td
-                                            className={`py-2.5 px-3 font-bold ${mov.type === 'income' ? 'text-emerald-400' : 'text-red-400'
+                                            className={`py-3 px-3 font-mono-num font-bold ${mov.type === 'income' ? 'text-emerald-700' : 'text-red-600'
                                                 }`}
                                         >
                                             {mov.type === 'income' ? '+' : '-'}${mov.amount.toLocaleString('es-AR')}
                                         </td>
-                                        <td className="py-2.5 pl-3">
+                                        <td className="py-3 px-3 text-right">
                                             <button
                                                 type="button"
                                                 onClick={() => deleteMovement(mov.id)}
-                                                className="text-red-400 hover:underline cursor-pointer"
+                                                className="text-red-600 hover:text-red-800 font-semibold hover:underline cursor-pointer"
                                             >
                                                 Eliminar
                                             </button>
