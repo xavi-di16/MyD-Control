@@ -18,6 +18,7 @@ export interface Employee {
     role: string;
     dailyRate: number;
     active: boolean;
+    isOwner?: boolean;
     createdAt: string;
 }
 
@@ -64,6 +65,7 @@ export interface Movement {
     amount: number;
     date: string;
     createdAt: string;
+    source?: 'payroll';
 }
 
 export interface PayrollRecord {
@@ -71,6 +73,7 @@ export interface PayrollRecord {
     userId: string;
     employeeId: string;
     employeeName: string;
+    isOwner?: boolean;
     workId?: string;
     weekStart: string;
     weekEnd: string;
@@ -82,6 +85,41 @@ export interface PayrollRecord {
     paidAmount: number;
     status: 'pending' | 'partial' | 'paid';
     createdAt: string;
+}
+
+export type AttendanceStatus = 'pending' | 'present' | 'half' | 'absent';
+
+export interface AttendanceDay {
+    status: AttendanceStatus;
+    dailyRate: number | null;
+    workId: string;
+    workName: string;
+}
+
+export type PayrollEntryKind = 'advance' | 'reimbursement' | 'payment';
+
+export interface PayrollEntry {
+    id: string;
+    kind: PayrollEntryKind;
+    amount: number;
+    date: string;
+    reference: string;
+}
+
+export interface WeeklyJournal {
+    userId: string;
+    employeeId: string;
+    employeeName: string;
+    isOwner: boolean;
+    weekStart: string;
+    days: Record<string, AttendanceDay>;
+    entries: PayrollEntry[];
+    createdAt: string;
+}
+
+export interface WeeklyClosure {
+    weekStart: string;
+    closedAt: string;
 }
 
 export interface BudgetItem {

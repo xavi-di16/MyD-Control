@@ -53,7 +53,7 @@ export const DashboardPage: React.FC = () => {
     const availableCash = totalIncome - totalExpense;
 
     const pendingPayrolls = payrolls.reduce(
-        (acc, p) => acc + Math.max(0, p.totalLiquidated - p.paidAmount),
+        (acc, p) => acc + (p.isOwner ? 0 : Math.max(0, p.totalLiquidated - p.paidAmount)),
         0
     );
 
@@ -167,7 +167,7 @@ export const DashboardPage: React.FC = () => {
                         <p className="text-[11px] text-[#717784] mt-0.5">Liquidaciones pendientes de pago</p>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-[#717784] border-t border-[#E5E7EB] pt-2.5">
-                        <span>Liquidaciones: {payrolls.length}</span>
+                        <span>Liquidaciones de empleados: {payrolls.filter((payroll) => !payroll.isOwner).length}</span>
                         <Link to="/employees" className="font-bold text-[#171717] hover:underline">
                             Ver personal →
                         </Link>

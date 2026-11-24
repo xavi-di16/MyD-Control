@@ -1,7 +1,9 @@
 // src/pages/works/WorksPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Work, WorkStatus } from '../../types';
+import type { BudgetItem, WeeklyJournal, Work, WorkStatus } from '../../types';
+import { subscribeToJournals } from '../../services/firestore/attendanceService';
+import { subscribeToBudgets } from '../../services/firestore/financeService';
 import {
     subscribeToWorks,
     createWork,
@@ -9,6 +11,8 @@ import {
     deleteWork,
 } from '../../services/firestore/worksService';
 import { calculateWorkMetrics } from '../../utils/calculations';
+import { journalLabor, workCosts } from '../../utils/attendance';
+import { WorkLaborCosts } from './WorkLaborCosts';
 
 const statusLabels: Record<WorkStatus, { label: string; color: string }> = {
     planned: { label: 'Planificada', color: 'bg-sky-50 text-sky-800 border-sky-200' },
@@ -20,6 +24,8 @@ const statusLabels: Record<WorkStatus, { label: string; color: string }> = {
 export const WorksPage: React.FC = () => {
     const { user } = useAuth();
     const [works, setWorks] = useState<Work[]>([]);
+    const [journals, setJournals] = useState<WeeklyJournal[]>();
+    const [budgetItems, setBudgetItems] = useState<BudgetItem[]>();
     const [selectedWork, setSelectedWork] = useState<Work | null>(null);
     const [statusFilter, setStatusFilter] = useState<'all' | WorkStatus>('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -47,7 +53,14 @@ export const WorksPage: React.FC = () => {
             },
             (err) => setError(err.message)
         );
-        return () => unsub();
+        const reportError = (err: Error) => setError(err.message);
+        const unsubscribeLabor = subscribeToJournals(user.uid, setJournals, reportError);
+        const unsubscribeCosts = subscribeToBudgets(user.uid, setBudgetItems, reportError);
+        return () => {
+            unsub();
+            unsubscribeLabor();
+            unsubscribeCosts();
+        };
     }, [user]);
 
     const handleCreateWork = async (e: React.FormEvent) => {
@@ -99,6 +112,8 @@ export const WorksPage: React.FC = () => {
             estimatedCosts: activeWork.estimatedCosts,
         })
         : null;
+    const labor = journalLabor(journals ?? []);
+    const recordedCosts = workCosts(budgetItems ?? [], labor);
 
     return (
         <div className="space-y-6">
@@ -226,6 +241,10 @@ export const WorksPage: React.FC = () => {
                                                 </span>
                                             </div>
                                         </div>
+                                        {journals && budgetItems && <WorkLaborCosts key={activeWork.id}
+                                            labor={labor.filter((day) => day.workId === activeWork.id)}
+                                            agreedBudget={activeWork.agreedBudget}
+                                            totalRecordedCost={recordedCosts.get(activeWork.id) ?? 0} />}
                                     </div>
                                 )}
                             </div>

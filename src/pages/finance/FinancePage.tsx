@@ -195,7 +195,7 @@ export const FinancePage: React.FC = () => {
                         >
                             <option value="Cobranza Obra">Cobranza Obra</option>
                             <option value="Materiales">Materiales</option>
-                            <option value="Jornales / Adelantos">Jornales / Adelantos</option>
+                            <option value="Jornales / Adelantos">Jornales / Adelantos (manual)</option>
                             <option value="Herramientas / Inversión">Herramientas / Inversión</option>
                             <option value="Pago de Deuda">Pago de Deuda</option>
                             <option value="Hogar / Personal">Hogar / Personal</option>
@@ -314,13 +314,13 @@ export const FinancePage: React.FC = () => {
                                             {mov.type === 'income' ? '+' : '-'}${mov.amount.toLocaleString('es-AR')}
                                         </td>
                                         <td className="py-3 px-3 text-right">
-                                            <button
+                                            {mov.source === 'payroll' ? <span className="text-[#717784]">Liquidación</span> : <button
                                                 type="button"
                                                 onClick={() => deleteMovement(mov.id)}
                                                 className="text-red-600 hover:text-red-800 font-semibold hover:underline cursor-pointer"
                                             >
                                                 Eliminar
-                                            </button>
+                                            </button>}
                                         </td>
                                     </tr>
                                 ))}

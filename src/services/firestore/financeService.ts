@@ -51,6 +51,7 @@ export const subscribeToMovements = (
                     amount: Number(data.amount) || 0,
                     date: data.date || new Date().toISOString().slice(0, 10),
                     createdAt: data.createdAt || new Date().toISOString(),
+                    source: data.source === 'payroll' ? 'payroll' : undefined,
                 };
             });
             items.sort((a, b) => b.date.localeCompare(a.date));

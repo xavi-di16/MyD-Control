@@ -2,11 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Movement, PayrollRecord, Work, Task } from '../../types';
+import type { Movement, PayrollRecord, Work, Task, WeeklyJournal } from '../../types';
 import { subscribeToMovements } from '../../services/firestore/financeService';
 import { subscribeToPayrolls } from '../../services/firestore/employeesService';
 import { subscribeToWorks } from '../../services/firestore/worksService';
 import { subscribeToUserTasks } from '../../services/firestore/tasksService';
+import { subscribeToJournals } from '../../services/firestore/attendanceService';
+import { journalLabor, money, todayInArgentina } from '../../utils/attendance';
 import { sendTasksSummaryEmail } from '../../services/email/emailService';
 
 export const ReportsPage: React.FC = () => {
@@ -15,13 +17,10 @@ export const ReportsPage: React.FC = () => {
     const [payrolls, setPayrolls] = useState<PayrollRecord[]>([]);
     const [works, setWorks] = useState<Work[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [journals, setJournals] = useState<WeeklyJournal[]>([]);
 
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(1);
-        return d.toISOString().slice(0, 10);
-    });
-    const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+    const [startDate, setStartDate] = useState(() => todayInArgentina().slice(0, 8) + '01');
+    const [endDate, setEndDate] = useState(todayInArgentina);
     const [observations, setObservations] = useState('');
     const [emailFeedback, setEmailFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(
         null
@@ -34,11 +33,13 @@ export const ReportsPage: React.FC = () => {
         const u2 = subscribeToPayrolls(user.uid, setPayrolls, () => { });
         const u3 = subscribeToWorks(user.uid, setWorks, () => { });
         const u4 = subscribeToUserTasks(user.uid, setTasks, () => { });
+        const u5 = subscribeToJournals(user.uid, setJournals, () => { });
         return () => {
             u1();
             u2();
             u3();
             u4();
+            u5();
         };
     }, [user]);
 
@@ -59,9 +60,12 @@ export const ReportsPage: React.FC = () => {
         .reduce((acc, m) => acc + m.amount, 0);
 
     const totalPayrollPending = payrolls.reduce(
-        (acc, p) => acc + Math.max(0, p.totalLiquidated - p.paidAmount),
+        (acc, p) => acc + (p.isOwner ? 0 : Math.max(0, p.totalLiquidated - p.paidAmount)),
         0
     );
+    const periodLabor = journalLabor(journals).filter((day) => day.date >= startDate && day.date <= endDate);
+    const employeeLabor = periodLabor.reduce((sum, day) => sum + (day.isOwner ? 0 : day.amount), 0);
+    const ownerLabor = periodLabor.reduce((sum, day) => sum + (day.isOwner ? day.amount : 0), 0);
 
     const totalPendingCollections = works.reduce(
         (acc, w) => acc + Math.max(0, w.agreedBudget - w.collectedAmount),
@@ -130,13 +134,14 @@ export const ReportsPage: React.FC = () => {
             18,
             134
         );
+        doc.text(`- Costo de asistencia del período: empleados ${money(employeeLabor)} / propietario ${money(ownerLabor)}`, 18, 140);
 
         if (observations.trim()) {
             doc.setFontSize(12);
-            doc.text('3. Observaciones de Cierre Administrativo', 14, 148);
+            doc.text('3. Observaciones de Cierre Administrativo', 14, 154);
             doc.setFontSize(10);
             const splitObs = doc.splitTextToSize(observations.trim(), 180);
-            doc.text(splitObs, 18, 156);
+            doc.text(splitObs, 18, 162);
         }
 
         doc.save(`MYD-Control-Cierre-${startDate}-a-${endDate}.pdf`);
@@ -317,6 +322,11 @@ export const ReportsPage: React.FC = () => {
                         <p className="text-xl font-extrabold font-mono-num text-[#171717] mt-1">
                             {tasks.filter((t) => t.status === 'completed').length} / {tasks.length} completadas
                         </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#F5F6F8] border border-[#E5E7EB]">
+                        <p className="text-xs font-semibold text-[#717784]">Costo de asistencia del período</p>
+                        <p className="mt-1 text-sm">Empleados <strong>{money(employeeLabor)}</strong></p>
+                        <p className="text-sm">Propietario <strong>{money(ownerLabor)}</strong></p>
                     </div>
                 </div>
             </div>

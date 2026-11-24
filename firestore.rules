@@ -27,7 +27,12 @@ service cloud.firestore {
     }
 
     match /movements/{movementId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
+      allow read: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && resource.data.get('source', '') != 'payroll'
+        && request.resource.data.get('source', '') != 'payroll';
+      allow delete: if isOwner(resource.data.userId) && resource.data.get('source', '') != 'payroll';
       allow create: if isOwner(request.resource.data.userId);
     }
 
@@ -39,6 +44,18 @@ service cloud.firestore {
     match /budgets/{budgetId} {
       allow read, update, delete: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId);
+    }
+
+    match /staff/{userId}/weeklyJournals/{journalId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.userId == userId
+        && journalId == request.resource.data.weekStart + '_' + request.resource.data.employeeId;
+    }
+
+    match /staff/{userId}/weeklyClosures/{weekStart} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.weekStart == weekStart;
     }
   }
 }

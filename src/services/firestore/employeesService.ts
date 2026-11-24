@@ -13,6 +13,8 @@ import {
 import { db } from '../firebase/firebase';
 import type { Employee, PayrollRecord } from '../../types';
 import { calculatePayroll } from '../../utils/calculations';
+import { journalsAsPayrolls } from '../../utils/attendance';
+import { subscribeToJournals } from './attendanceService';
 
 const EMPLOYEES_COLLECTION = 'employees';
 const PAYROLLS_COLLECTION = 'payrolls';
@@ -36,6 +38,7 @@ export const subscribeToEmployees = (
                     role: data.role || 'Operario',
                     dailyRate: Number(data.dailyRate) || 0,
                     active: data.active ?? true,
+                    isOwner: data.isOwner ?? false,
                     createdAt: data.createdAt || new Date().toISOString(),
                 };
             });
@@ -52,6 +55,7 @@ export const createEmployee = async (input: {
     role: string;
     dailyRate: number;
     active?: boolean;
+    isOwner?: boolean;
 }): Promise<string> => {
     const docRef = await addDoc(collection(db, EMPLOYEES_COLLECTION), {
         userId: input.userId,
@@ -59,6 +63,7 @@ export const createEmployee = async (input: {
         role: input.role.trim() || 'Operario',
         dailyRate: Number(input.dailyRate) || 0,
         active: input.active ?? true,
+        isOwner: input.isOwner ?? false,
         createdAt: new Date().toISOString(),
     });
     return docRef.id;
@@ -66,7 +71,7 @@ export const createEmployee = async (input: {
 
 export const updateEmployee = async (
     employeeId: string,
-    updates: Partial<Pick<Employee, 'name' | 'role' | 'dailyRate' | 'active'>>
+    updates: Partial<Pick<Employee, 'name' | 'role' | 'dailyRate' | 'active' | 'isOwner'>>
 ): Promise<void> => {
     await updateDoc(doc(db, EMPLOYEES_COLLECTION, employeeId), updates);
 };
@@ -75,7 +80,7 @@ export const deleteEmployee = async (employeeId: string): Promise<void> => {
     await deleteDoc(doc(db, EMPLOYEES_COLLECTION, employeeId));
 };
 
-export const subscribeToPayrolls = (
+export const subscribeToLegacyPayrolls = (
     userId: string,
     onData: (records: PayrollRecord[]) => void,
     onError: (error: Error) => void
@@ -110,6 +115,28 @@ export const subscribeToPayrolls = (
         },
         onError
     );
+};
+
+export const subscribeToPayrolls = (
+    userId: string,
+    onData: (records: PayrollRecord[]) => void,
+    onError: (error: Error) => void
+): Unsubscribe => {
+    let legacy: PayrollRecord[] = [];
+    let weekly: PayrollRecord[] = [];
+    const publish = () => onData([...legacy, ...weekly].sort((a, b) => b.weekStart.localeCompare(a.weekStart)));
+    const unsubscribeLegacy = subscribeToLegacyPayrolls(userId, (data) => {
+        legacy = data;
+        publish();
+    }, onError);
+    const unsubscribeWeekly = subscribeToJournals(userId, (data) => {
+        weekly = journalsAsPayrolls(data);
+        publish();
+    }, onError);
+    return () => {
+        unsubscribeLegacy();
+        unsubscribeWeekly();
+    };
 };
 
 export const createPayrollRecord = async (input: {

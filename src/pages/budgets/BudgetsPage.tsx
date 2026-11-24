@@ -1,18 +1,21 @@
 // src/pages/budgets/BudgetsPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import type { BudgetItem, Work } from '../../types';
+import type { BudgetItem, WeeklyJournal, Work } from '../../types';
+import { subscribeToJournals } from '../../services/firestore/attendanceService';
 import {
     subscribeToBudgets,
     createBudgetItem,
     deleteBudgetItem,
 } from '../../services/firestore/financeService';
 import { subscribeToWorks } from '../../services/firestore/worksService';
+import { journalLabor, money } from '../../utils/attendance';
 
 export const BudgetsPage: React.FC = () => {
     const { user } = useAuth();
     const [items, setItems] = useState<BudgetItem[]>([]);
     const [works, setWorks] = useState<Work[]>([]);
+    const [journals, setJournals] = useState<WeeklyJournal[]>([]);
     const [selectedWorkId, setSelectedWorkId] = useState<string>('all');
     const [error, setError] = useState<string | null>(null);
 
@@ -38,9 +41,11 @@ export const BudgetsPage: React.FC = () => {
             },
             (err) => setError(err.message)
         );
+        const unsubJournals = subscribeToJournals(user.uid, setJournals, (err) => setError(err.message));
         return () => {
             unsubBud();
             unsubWorks();
+            unsubJournals();
         };
     }, [user]);
 
@@ -74,7 +79,10 @@ export const BudgetsPage: React.FC = () => {
         (acc, it) => acc + it.quantity * it.unitEstimatedCost,
         0
     );
-    const totalActual = filteredItems.reduce(
+    const laborCost = journalLabor(journals).reduce((sum, day) => (
+        day.workId && (selectedWorkId === 'all' || day.workId === selectedWorkId) ? sum + day.amount : sum
+    ), 0);
+    const totalActual = laborCost + filteredItems.reduce(
         (acc, it) => acc + it.quantity * it.unitActualCost,
         0
     );
@@ -140,6 +148,7 @@ export const BudgetsPage: React.FC = () => {
                     <p className="text-2xl font-extrabold font-mono-num text-[#171717] mt-2">
                         ${totalActual.toLocaleString('es-AR')}
                     </p>
+                    <p className="text-xs text-[#717784]">Incluye {money(laborCost)} de asistencia asignada.</p>
                 </div>
                 <div className="bg-[#171717] text-white rounded-xl p-5 shadow-2xs">
                     <p className="text-xs font-medium text-neutral-400">
@@ -251,6 +260,9 @@ export const BudgetsPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+                {type === 'labor' && <p className="text-xs text-[#717784]">
+                    Usá este ítem para costos adicionales de mano de obra, como contratistas. Los jornales de la planilla de asistencia ya se suman al costo real.
+                </p>}
             </form>
 
             {/* Tabla Comparativa de Ítems */}

@@ -17,11 +17,17 @@ export interface PayrollCalculationResult {
 export const calculatePayroll = (input: PayrollCalculationInput): PayrollCalculationResult => {
     const days = Math.max(0, Number(input.daysWorked) || 0);
     const rate = Math.max(0, Number(input.dailyRate) || 0);
+    return settlePayroll(Math.round(days * rate * 100) / 100, input);
+};
+
+export const settlePayroll = (
+    grossPay: number,
+    input: Pick<PayrollCalculationInput, 'advances' | 'reimbursements' | 'paidAmount'>
+): PayrollCalculationResult => {
     const advances = Math.max(0, Number(input.advances) || 0);
     const reimbursements = Math.max(0, Number(input.reimbursements) || 0);
     const paid = Math.max(0, Number(input.paidAmount) || 0);
 
-    const grossPay = Math.round(days * rate * 100) / 100;
     const totalLiquidated = Math.round((grossPay - advances + reimbursements) * 100) / 100;
     const pendingBalance = Math.max(0, Math.round((totalLiquidated - paid) * 100) / 100);
 
