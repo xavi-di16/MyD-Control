@@ -16,10 +16,16 @@ export const ReportsPage: React.FC = () => {
     const [works, setWorks] = useState<Work[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
 
-    const [startDate, setStartDate] = useState('2026-11-01');
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(1);
+        return d.toISOString().slice(0, 10);
+    });
     const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
     const [observations, setObservations] = useState('');
-    const [emailStatus, setEmailStatus] = useState<string | null>(null);
+    const [emailFeedback, setEmailFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(
+        null
+    );
     const [sendingEmail, setSendingEmail] = useState(false);
 
     useEffect(() => {
@@ -89,64 +95,82 @@ export const ReportsPage: React.FC = () => {
 
         // Bloque 1: Resumen Financiero
         doc.setFillColor(245, 246, 248);
-        doc.rect(14, 56, 182, 34, 'F');
+        doc.rect(14, 56, 182, 42, 'F');
         doc.setFontSize(12);
         doc.text('1. Balance Financiero del Período', 18, 64);
         doc.setFontSize(10);
         doc.text(`- Ingresos y cobranzas registradas: +$${income.toLocaleString('es-AR')}`, 20, 72);
         doc.text(`- Egresos operativos MYD: -$${mydExpense.toLocaleString('es-AR')}`, 20, 78);
         doc.text(`- Gastos domésticos registrados: -$${householdExpense.toLocaleString('es-AR')}`, 20, 84);
-        doc.text(`- SALDO NETO DE CAJA: $${netBalance.toLocaleString('es-AR')}`, 115, 84);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`- SALDO NETO DE CAJA: $${netBalance.toLocaleString('es-AR')}`, 20, 92);
+        doc.setFont('helvetica', 'normal');
 
         // Bloque 2: Estado Operativo
         doc.setFontSize(12);
-        doc.text('2. Estado de Jornales, Obras y Tareas', 14, 102);
+        doc.text('2. Estado de Jornales, Obras y Tareas', 14, 108);
         doc.setFontSize(10);
         doc.text(
             `- Saldos pendientes de pago a empleados: $${totalPayrollPending.toLocaleString('es-AR')}`,
             18,
-            110
+            116
         );
         doc.text(
             `- Cobranzas pendientes de clientes por obras: $${totalPendingCollections.toLocaleString('es-AR')}`,
             18,
-            116
+            122
         );
         doc.text(
             `- Obras en ejecución: ${works.filter((w) => w.status === 'active').length} de ${works.length} totales`,
             18,
-            122
+            128
         );
         doc.text(
             `- Tareas operativas completadas: ${tasks.filter((t) => t.status === 'completed').length} de ${tasks.length}`,
             18,
-            128
+            134
         );
 
         if (observations.trim()) {
             doc.setFontSize(12);
-            doc.text('3. Observaciones de Cierre Administrativo', 14, 142);
+            doc.text('3. Observaciones de Cierre Administrativo', 14, 148);
             doc.setFontSize(10);
             const splitObs = doc.splitTextToSize(observations.trim(), 180);
-            doc.text(splitObs, 18, 150);
+            doc.text(splitObs, 18, 156);
         }
 
         doc.save(`MYD-Control-Cierre-${startDate}-a-${endDate}.pdf`);
     };
 
     const handleSendTasksEmail = async () => {
-        if (!user?.email) return;
+        if (!user?.email) {
+            setEmailFeedback({
+                type: 'error',
+                text: 'No se detectó un correo electrónico en tu sesión de usuario.',
+            });
+            return;
+        }
+        if (tasks.length === 0) {
+            setEmailFeedback({
+                type: 'error',
+                text: 'No hay tareas cargadas para generar el resumen por correo.',
+            });
+            return;
+        }
         setSendingEmail(true);
-        setEmailStatus(null);
+        setEmailFeedback(null);
         try {
             const res = await sendTasksSummaryEmail(
                 user.email,
                 user.displayName || user.email,
                 tasks
             );
-            setEmailStatus(res.message);
+            setEmailFeedback({ type: 'success', text: res.message });
         } catch (err) {
-            setEmailStatus(err instanceof Error ? err.message : 'Error al enviar correo.');
+            setEmailFeedback({
+                type: 'error',
+                text: err instanceof Error ? err.message : 'Error al enviar correo.',
+            });
         } finally {
             setSendingEmail(false);
         }
@@ -161,7 +185,7 @@ export const ReportsPage: React.FC = () => {
                         Informes y Cierres Semanales
                     </h1>
                     <p className="text-xs text-[#717784] mt-0.5">
-                        Auditoría por período, exportación de documento PDF corporativo y notificación vía AWS SES
+                        Auditoría por período, exportación de documento PDF corporativo y notificación por email
                     </p>
                 </div>
 
@@ -176,17 +200,24 @@ export const ReportsPage: React.FC = () => {
                     <button
                         type="button"
                         onClick={handleSendTasksEmail}
-                        disabled={sendingEmail}
+                        disabled={sendingEmail || tasks.length === 0}
                         className="px-4 py-2.5 bg-[#171717] hover:bg-[#252525] disabled:opacity-50 text-white font-semibold rounded-lg text-xs transition cursor-pointer"
                     >
-                        {sendingEmail ? 'Enviando...' : 'Enviar Resumen por Email (AWS SES)'}
+                        {sendingEmail ? 'Enviando...' : 'Enviar Resumen por Email'}
                     </button>
                 </div>
             </div>
 
-            {emailStatus && (
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-900">
-                    {emailStatus}
+            {emailFeedback && (
+                <div
+                    role="status"
+                    className={`p-3.5 rounded-lg border text-xs font-medium ${
+                        emailFeedback.type === 'success'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : 'bg-red-50 border-red-200 text-red-700'
+                    }`}
+                >
+                    {emailFeedback.text}
                 </div>
             )}
 

@@ -25,7 +25,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const translateFirebaseError = (code: string): string => {
+const translateFirebaseError = (code: string): string => {
     switch (code) {
         case 'auth/invalid-credential':
         case 'auth/wrong-password':

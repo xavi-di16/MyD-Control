@@ -1,7 +1,8 @@
 // src/components/layout/MainLayout.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
 interface NavItem {
     to: string;
@@ -14,7 +15,27 @@ interface NavItem {
 export const MainLayout: React.FC = () => {
     const { user, logout } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [tourOpen, setTourOpen] = useState(false);
+    const [highlightedRoute, setHighlightedRoute] = useState<string | null>(null);
     const location = useLocation();
+
+    useEffect(() => {
+        if (!user?.uid) return;
+        const storageKey = `myd_control_tour_seen_${user.uid}`;
+        const alreadySeen = localStorage.getItem(storageKey);
+        if (!alreadySeen) {
+            const timer = setTimeout(() => setTourOpen(true), 0);
+            return () => clearTimeout(timer);
+        }
+    }, [user?.uid]);
+
+    const handleCloseTour = () => {
+        if (user?.uid) {
+            localStorage.setItem(`myd_control_tour_seen_${user.uid}`, 'true');
+        }
+        setTourOpen(false);
+        setHighlightedRoute(null);
+    };
 
     const navItems: NavItem[] = [
         {
@@ -82,7 +103,7 @@ export const MainLayout: React.FC = () => {
         {
             to: '/reports',
             label: 'Informes y Cierres',
-            shortDesc: 'Reportes semanales PDF y SES',
+            shortDesc: 'Reportes semanales PDF y Email',
             icon: (
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -114,7 +135,6 @@ export const MainLayout: React.FC = () => {
                     }`}
             >
                 <div>
-                    {/* Cabecera de identidad MYD */}
                     <div className="h-16 px-5 flex items-center justify-between border-b border-[#252525]">
                         <Link to="/" className="flex items-center gap-3 group" onClick={() => setMobileMenuOpen(false)}>
                             <div className="w-9 h-9 rounded-lg bg-[#F5C518] text-[#171717] font-extrabold text-sm flex items-center justify-center tracking-tighter shadow-xs group-hover:bg-[#E0AD00] transition">
@@ -145,53 +165,54 @@ export const MainLayout: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Navegación principal */}
                     <div className="px-3 py-5">
                         <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-[#717784]">
                             Módulos de Gestión
                         </p>
                         <nav className="space-y-1">
-                            {navItems.map((item) => (
-                                <NavLink
-                                    key={item.to}
-                                    to={item.to}
-                                    end={item.end}
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className={({ isActive }) =>
-                                        `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${isActive
-                                            ? 'bg-[#252525] text-white font-semibold shadow-xs'
-                                            : 'text-neutral-400 hover:bg-[#252525]/60 hover:text-neutral-100'
-                                        }`
-                                    }
-                                >
-                                    {({ isActive }) => (
-                                        <>
-                                            {isActive && (
-                                                <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#F5C518] rounded-r" />
-                                            )}
-                                            <span
-                                                className={`p-1.5 rounded-md transition ${isActive
+                            {navItems.map((item) => {
+                                const isTourFocused = highlightedRoute === item.to;
+                                return (
+                                    <NavLink
+                                        key={item.to}
+                                        to={item.to}
+                                        end={item.end}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={({ isActive }) =>
+                                            `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${isActive
+                                                ? 'bg-[#252525] text-white font-semibold shadow-xs'
+                                                : 'text-neutral-400 hover:bg-[#252525]/60 hover:text-neutral-100'
+                                            } ${isTourFocused ? 'ring-2 ring-[#F5C518] bg-[#252525]' : ''}`
+                                        }
+                                    >
+                                        {({ isActive }) => (
+                                            <>
+                                                {isActive && (
+                                                    <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#F5C518] rounded-r" />
+                                                )}
+                                                <span
+                                                    className={`p-1.5 rounded-md transition ${isActive || isTourFocused
                                                         ? 'bg-[#F5C518] text-[#171717]'
                                                         : 'bg-[#252525] text-neutral-400 group-hover:text-white'
-                                                    }`}
-                                            >
-                                                {item.icon}
-                                            </span>
-                                            <div className="truncate">
-                                                <span className="block leading-tight">{item.label}</span>
-                                                <span className="block text-[10px] text-neutral-500 truncate mt-0.5">
-                                                    {item.shortDesc}
+                                                        }`}
+                                                >
+                                                    {item.icon}
                                                 </span>
-                                            </div>
-                                        </>
-                                    )}
-                                </NavLink>
-                            ))}
+                                                <div className="truncate">
+                                                    <span className="block leading-tight">{item.label}</span>
+                                                    <span className="block text-[10px] text-neutral-500 truncate mt-0.5">
+                                                        {item.shortDesc}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
+                                    </NavLink>
+                                );
+                            })}
                         </nav>
                     </div>
                 </div>
 
-                {/* Pie de Sidebar: Perfil del administrador y cierre de sesión */}
                 <div className="p-4 border-t border-[#252525] bg-[#141414]">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="w-8 h-8 rounded-full bg-[#252525] border border-[#F5C518]/40 text-[#F5C518] font-bold text-xs flex items-center justify-center shrink-0">
@@ -220,9 +241,8 @@ export const MainLayout: React.FC = () => {
                 </div>
             </aside>
 
-            {/* Contenedor Principal (Header + Área de Contenido) */}
+            {/* Contenedor Principal */}
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Barra superior (Header) */}
                 <header className="h-16 bg-white border-b border-[#E5E7EB] px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
                     <div className="flex items-center gap-3 min-w-0">
                         <button
@@ -248,8 +268,20 @@ export const MainLayout: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {/* Estado de sincronización Cloud Firestore */}
+                    <div className="flex items-center gap-2.5">
+                        {/* Botón para volver a iniciar el recorrido interactivo */}
+                        <button
+                            type="button"
+                            onClick={() => setTourOpen(true)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F5F6F8] hover:bg-neutral-200 text-[#171717] border border-[#E5E7EB] transition flex items-center gap-1.5 cursor-pointer"
+                            title="Iniciar recorrido guiado por MYD Control"
+                        >
+                            <span className="w-4 h-4 rounded-full bg-[#171717] text-[#F5C518] text-[10px] font-bold flex items-center justify-center">
+                                ?
+                            </span>
+                            <span className="hidden sm:inline">Guía rápida</span>
+                        </button>
+
                         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5F6F8] border border-[#E5E7EB]">
                             <span className="w-2 h-2 rounded-full bg-emerald-500" />
                             <span className="text-[11px] font-medium text-[#171717]">
@@ -257,7 +289,6 @@ export const MainLayout: React.FC = () => {
                             </span>
                         </div>
 
-                        {/* Accesos rápidos */}
                         <div className="hidden sm:flex items-center gap-2">
                             <Link
                                 to="/finance"
@@ -275,11 +306,17 @@ export const MainLayout: React.FC = () => {
                     </div>
                 </header>
 
-                {/* Área de Contenido */}
                 <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
                     <Outlet />
                 </main>
             </div>
+
+            {/* Modal de Recorrido Guiado */}
+            <OnboardingTour
+                isOpen={tourOpen}
+                onClose={handleCloseTour}
+                onStepRouteChange={setHighlightedRoute}
+            />
         </div>
     );
 };

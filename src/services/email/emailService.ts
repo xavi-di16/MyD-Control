@@ -48,10 +48,27 @@ export const sendTasksSummaryEmail = async (
         body: JSON.stringify(payload),
     });
 
-    const data = (await response.json()) as { message?: string; error?: string; messageId?: string };
+    let data: { message?: string; error?: string; messageId?: string } = {};
+    const contentType = response.headers?.get?.('content-type') || '';
+    if (typeof response.json === 'function' && (!contentType || contentType.includes('application/json'))) {
+        try {
+            data = (await response.json()) as { message?: string; error?: string; messageId?: string };
+        } catch {
+            data = {};
+        }
+    } else if (typeof response.text === 'function') {
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(
+                response.status === 404 || text.includes('<!doctype')
+                    ? 'El servicio de envío de email no está disponible en este servidor local (requiere despliegue en Vercel con credenciales SMTP o API configuradas).'
+                    : `Error del servidor (${response.status}): ${text.slice(0, 150)}`
+            );
+        }
+    }
 
     if (!response.ok) {
-        throw new Error(data.error || data.message || 'No se pudo enviar el correo de resumen.');
+        throw new Error(data.error || data.message || `No se pudo enviar el correo de resumen (código ${response.status}).`);
     }
 
     return {

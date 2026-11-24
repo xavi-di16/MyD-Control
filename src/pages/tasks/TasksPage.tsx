@@ -1,35 +1,37 @@
 // src/pages/tasks/TasksPage.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTasks } from '../../hooks/useTasks';
 import { TodoForm, type TodoFormValues } from '../../components/tasks/TodoForm';
 import { TodoList } from '../../components/tasks/TodoList';
+import type { Task, TaskPriority, Work, Employee } from '../../types';
+import { subscribeToWorks } from '../../services/firestore/worksService';
+import { subscribeToEmployees } from '../../services/firestore/employeesService';
 import { sendTasksSummaryEmail } from '../../services/email/emailService';
-import type { Task, TaskPriority, TaskStatus } from '../../types';
 
 export const TasksPage: React.FC = () => {
     const { user } = useAuth();
-    const {
-        tasks,
-        loading,
-        error,
-        addTask,
-        editTask,
-        toggleStatus,
-        removeTask,
-        getFilteredTasks,
-    } = useTasks();
+    const { tasks, loading, error, addTask, editTask, toggleStatus, removeTask } = useTasks();
 
     const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
     const [priorityFilter, setPriorityFilter] = useState<'all' | TaskPriority>('all');
-
-    const [emailLoading, setEmailLoading] = useState(false);
-    const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(
+    const [works, setWorks] = useState<Work[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [emailFeedback, setEmailFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(
         null
     );
 
-    const filteredTasks = getFilteredTasks(statusFilter, priorityFilter);
+    useEffect(() => {
+        if (!user) return;
+        const unsubWorks = subscribeToWorks(user.uid, setWorks, () => { });
+        const unsubEmp = subscribeToEmployees(user.uid, setEmployees, () => { });
+        return () => {
+            unsubWorks();
+            unsubEmp();
+        };
+    }, [user]);
 
     const handleFormSubmit = async (values: TodoFormValues) => {
         if (editingTask) {
@@ -37,72 +39,98 @@ export const TasksPage: React.FC = () => {
                 title: values.title,
                 description: values.description,
                 priority: values.priority,
-                dueDate: values.dueDate,
-                workId: values.workId,
-                employeeId: values.employeeId,
+                dueDate: values.dueDate || undefined,
+                workId: values.workId || undefined,
+                employeeId: values.employeeId || undefined,
             });
             setEditingTask(null);
         } else {
-            await addTask(values);
+            await addTask({
+                title: values.title,
+                description: values.description,
+                priority: values.priority,
+                dueDate: values.dueDate || undefined,
+                workId: values.workId || undefined,
+                employeeId: values.employeeId || undefined,
+            });
         }
     };
 
-    const handleSendEmailSummary = async () => {
+    const handleSendSummary = async () => {
         if (!user?.email) return;
-        setEmailLoading(true);
-        setEmailStatus(null);
+        setSendingEmail(true);
+        setEmailFeedback(null);
         try {
-            const res = await sendTasksSummaryEmail(
+            const response = await sendTasksSummaryEmail(
                 user.email,
                 user.displayName || user.email,
                 tasks
             );
-            setEmailStatus({ type: 'success', text: res.message });
+            setEmailFeedback({ type: 'success', text: response.message });
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Error al enviar el resumen por email.';
-            setEmailStatus({ type: 'error', text: msg });
+            setEmailFeedback({
+                type: 'error',
+                text: err instanceof Error ? err.message : 'Error al enviar el resumen por correo.',
+            });
         } finally {
-            setEmailLoading(false);
+            setSendingEmail(false);
         }
     };
 
+    const filteredTasks = tasks.filter((task) => {
+        const matchesStatus =
+            statusFilter === 'all' ||
+            (statusFilter === 'completed' ? task.status === 'completed' : task.status !== 'completed');
+        const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+        return matchesStatus && matchesPriority;
+    });
+
+    const worksMap: Record<string, string> = {};
+    works.forEach((w) => {
+        worksMap[w.id] = w.name;
+    });
+
+    const employeesMap: Record<string, string> = {};
+    employees.forEach((emp) => {
+        employeesMap[emp.id] = emp.name;
+    });
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Gestor Estratégico de Tareas</h1>
-                    <p className="text-sm text-slate-400">
-                        Sincronización en tiempo real con Cloud Firestore y notificación vía AWS SES
+                    <h1 className="text-2xl font-bold text-[#171717] tracking-tight">
+                        Gestor Estratégico de Tareas
+                    </h1>
+                    <p className="text-xs text-[#717784] mt-0.5">
+                        Planificación operativa sincronizada en tiempo real y envío de resumen por correo electrónico
                     </p>
                 </div>
 
                 <button
                     type="button"
-                    onClick={handleSendEmailSummary}
-                    disabled={emailLoading}
-                    className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-semibold rounded-lg text-xs transition cursor-pointer self-start sm:self-auto"
+                    onClick={handleSendSummary}
+                    disabled={sendingEmail || tasks.length === 0}
+                    className="px-4 py-2.5 bg-[#171717] hover:bg-[#252525] disabled:opacity-50 text-[#F5C518] font-bold rounded-lg text-xs transition cursor-pointer shrink-0"
                 >
-                    {emailLoading ? 'Enviando resumen...' : 'Enviar Resumen por Email (AWS SES)'}
+                    {sendingEmail ? 'Enviando resumen...' : 'Enviar Resumen por Email'}
                 </button>
             </div>
 
-            {emailStatus && (
+            {emailFeedback && (
                 <div
                     role="status"
-                    className={`p-3 rounded-lg border text-xs ${emailStatus.type === 'success'
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                        : 'bg-red-500/10 border-red-500/30 text-red-300'
+                    className={`p-3.5 rounded-lg border text-xs font-medium ${emailFeedback.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-red-50 border-red-200 text-red-700'
                         }`}
                 >
-                    {emailStatus.text}
+                    {emailFeedback.text}
                 </div>
             )}
 
             {error && (
-                <div
-                    role="alert"
-                    className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs"
-                >
+                <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
                     {error}
                 </div>
             )}
@@ -111,35 +139,37 @@ export const TasksPage: React.FC = () => {
                 onSubmit={handleFormSubmit}
                 editingTask={editingTask}
                 onCancelEdit={() => setEditingTask(null)}
+                worksOptions={works.map((w) => ({ id: w.id, name: w.name }))}
+                employeesOptions={employees.map((e) => ({ id: e.id, name: e.name }))}
             />
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-400 font-medium">Estado:</span>
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-2">
                     {(['all', 'pending', 'completed'] as const).map((st) => (
                         <button
                             key={st}
                             type="button"
                             onClick={() => setStatusFilter(st)}
-                            className={`px-3 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${statusFilter === st
-                                ? 'bg-amber-500 text-slate-950 font-semibold'
-                                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${statusFilter === st
+                                ? 'bg-[#171717] text-[#F5C518]'
+                                : 'bg-[#F5F6F8] text-[#717784] hover:text-[#171717] border border-[#E5E7EB]'
                                 }`}
                         >
-                            {st === 'all' ? 'Todas' : st === 'pending' ? 'Pendientes' : 'Completadas'}
+                            {st === 'all'
+                                ? `Todas (${tasks.length})`
+                                : st === 'pending'
+                                    ? `Pendientes (${tasks.filter((t) => t.status !== 'completed').length})`
+                                    : `Completadas (${tasks.filter((t) => t.status === 'completed').length})`}
                         </button>
                     ))}
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <label htmlFor="filter-priority" className="text-xs text-slate-400 font-medium">
-                        Prioridad:
-                    </label>
+                    <span className="text-xs font-semibold text-[#717784]">Prioridad:</span>
                     <select
-                        id="filter-priority"
                         value={priorityFilter}
                         onChange={(e) => setPriorityFilter(e.target.value as 'all' | TaskPriority)}
-                        className="px-3 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white"
+                        className="px-3 py-1.5 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#171717]"
                     >
                         <option value="all">Todas</option>
                         <option value="high">Alta</option>
@@ -150,8 +180,8 @@ export const TasksPage: React.FC = () => {
             </div>
 
             {loading ? (
-                <div className="p-8 text-center text-sm text-slate-400">
-                    Cargando tareas en tiempo real...
+                <div className="bg-white border border-[#E5E7EB] rounded-xl p-8 text-center text-xs text-[#717784]">
+                    Cargando tareas operativas...
                 </div>
             ) : (
                 <TodoList
@@ -159,6 +189,8 @@ export const TasksPage: React.FC = () => {
                     onToggle={toggleStatus}
                     onEdit={(task) => setEditingTask(task)}
                     onDelete={removeTask}
+                    worksMap={worksMap}
+                    employeesMap={employeesMap}
                 />
             )}
         </div>
