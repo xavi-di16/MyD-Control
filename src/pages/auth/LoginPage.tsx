@@ -1,10 +1,11 @@
 // src/pages/auth/LoginPage.tsx
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
     const { user, loginWithEmail, registerWithEmail, loginWithGoogle, error, clearError } = useAuth();
+    const { state } = useLocation();
     const [isRegistering, setIsRegistering] = useState(false);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -13,7 +14,13 @@ export const LoginPage: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
 
     if (user) {
-        return <Navigate to="/" replace />;
+        const from = state?.from;
+        const pathname = from?.pathname;
+        const redirect = typeof pathname === 'string' && pathname.startsWith('/')
+            && !pathname.startsWith('//') && !pathname.startsWith('/\\') && pathname !== '/login'
+            ? { pathname, search: from.search, hash: from.hash }
+            : '/';
+        return <Navigate to={redirect} replace />;
     }
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

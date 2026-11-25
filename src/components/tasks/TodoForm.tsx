@@ -1,6 +1,6 @@
 // src/components/tasks/TodoForm.tsx
 import React, { useState, useEffect } from 'react';
-import type { Task, TaskPriority } from '../../types';
+import type { Task, TaskPriority, TaskStatus } from '../../types';
 
 export interface TodoFormValues {
     title: string;
@@ -9,6 +9,7 @@ export interface TodoFormValues {
     dueDate: string;
     workId: string;
     employeeId: string;
+    status?: TaskStatus;
 }
 
 interface TodoFormProps {
@@ -32,6 +33,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
     const [dueDate, setDueDate] = useState('');
     const [workId, setWorkId] = useState('');
     const [employeeId, setEmployeeId] = useState('');
+    const [status, setStatus] = useState<TaskStatus>('pending');
     const [validationError, setValidationError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
@@ -43,6 +45,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
             setDueDate(editingTask.dueDate || '');
             setWorkId(editingTask.workId || '');
             setEmployeeId(editingTask.employeeId || '');
+            setStatus(editingTask.status);
             setValidationError(null);
         } else {
             setTitle('');
@@ -72,6 +75,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                 dueDate,
                 workId,
                 employeeId,
+                ...(editingTask && { status }),
             });
 
             if (!editingTask) {
@@ -178,7 +182,18 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                     />
                 </div>
 
-                {worksOptions.length > 0 && (
+                {editingTask && (
+                    <label className="grid gap-1 text-xs font-semibold">Estado de la tarea
+                        <select value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                            className="rounded-lg border border-[#E5E7EB] bg-[#F5F6F8] px-3.5 py-2 text-sm">
+                            <option value="pending">Pendiente</option>
+                            <option value="in_progress">En curso</option>
+                            <option value="completed">Completada</option>
+                        </select>
+                    </label>
+                )}
+
+                {(worksOptions.length > 0 || !!workId) && (
                     <div>
                         <label htmlFor="task-work" className="block text-xs font-semibold text-[#171717] mb-1.5">
                             Obra asociada
@@ -190,6 +205,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                             className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717]"
                         >
                             <option value="">Sin obra específica</option>
+                            {workId && !worksOptions.some((work) => work.id === workId) && <option value={workId}>Obra archivada</option>}
                             {worksOptions.map((w) => (
                                 <option key={w.id} value={w.id}>
                                     {w.name}
@@ -199,7 +215,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                     </div>
                 )}
 
-                {employeesOptions.length > 0 && (
+                {(employeesOptions.length > 0 || !!employeeId) && (
                     <div>
                         <label htmlFor="task-employee" className="block text-xs font-semibold text-[#171717] mb-1.5">
                             Empleado asignado
@@ -211,6 +227,7 @@ export const TodoForm: React.FC<TodoFormProps> = ({
                             className="w-full px-3.5 py-2 bg-[#F5F6F8] focus:bg-white border border-[#E5E7EB] rounded-lg text-[#171717] text-sm focus:outline-none focus:border-[#171717]"
                         >
                             <option value="">Sin asignar</option>
+                            {employeeId && !employeesOptions.some((employee) => employee.id === employeeId) && <option value={employeeId}>Empleado archivado</option>}
                             {employeesOptions.map((emp) => (
                                 <option key={emp.id} value={emp.id}>
                                     {emp.name}

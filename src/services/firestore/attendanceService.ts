@@ -94,7 +94,8 @@ export const registerJournalEntry = async (
     userId: string,
     employeeId: string,
     weekStart: string,
-    entry: PayrollEntry
+    entry: PayrollEntry,
+    previous?: PayrollEntry
 ) => {
     const amount = roundMoney(entry.amount);
     if (!isCalendarDate(weekStart) || mondayOf(weekStart) !== weekStart
@@ -113,23 +114,38 @@ export const registerJournalEntry = async (
             if (data?.userId !== userId) throw new Error('No se encuentra el empleado.');
             journal = newJournal({ ...data, id: employeeId }, weekStart);
         }
-        if (journal.entries.some((item) => item.id === entry.id)) return;
+        const index = journal.entries.findIndex((item) => item.id === entry.id);
+        const saved = journal.entries[index];
+        if (saved && !previous) return;
+        if (previous && (!saved || saved.kind !== previous.kind || saved.date !== previous.date
+            || saved.reference !== previous.reference || saved.amount !== previous.amount)) {
+            throw new Error('El movimiento cambió en otra sesión. Abrilo de nuevo para corregirlo.');
+        }
         const reference = entry.reference.trim();
-        const duplicate = journal.entries.some((item) => item.kind === entry.kind && (
+        const otherEntries = journal.entries.filter((item) => item.id !== entry.id);
+        const duplicate = otherEntries.some((item) => item.kind === entry.kind && (
             reference ? item.reference.toLowerCase() === reference.toLowerCase()
                 : item.date === entry.date && item.amount === amount
         ));
         if (duplicate) {
             throw new Error('Ya hay un movimiento igual. Si corresponde a otro comprobante, ingresá su referencia.');
         }
-        if (entry.kind === 'payment' && amount > summarizeJournal(journal).pendingBalance) {
+        const maximum = Math.max(
+            saved?.kind === 'payment' ? saved.amount : 0,
+            summarizeJournal({ ...journal, entries: otherEntries }).pendingBalance
+        );
+        if (entry.kind === 'payment' && amount > maximum) {
             throw new Error('El pago supera el saldo pendiente. Revisá la liquidación actual.');
         }
-        journal.entries.push({ ...entry, amount, reference });
+        const entryIndex = index < 0 ? journal.entries.length : index;
+        const voided = entry.kind === 'reimbursement';
+        const hadCashMovement = !!saved && (saved.kind !== 'reimbursement' || saved.cashRecorded === true);
+        const cashRecorded = !voided || hadCashMovement;
+        journal.entries[entryIndex] = { ...entry, amount, reference, cashRecorded };
         transaction.set(ref, journal);
 
-        if (entry.kind !== 'reimbursement') {
-            const label = entry.kind === 'advance' ? 'Adelanto' : 'Pago de jornal';
+        if (cashRecorded) {
+            const label = voided ? 'Reintegro' : entry.kind === 'advance' ? 'Adelanto' : 'Pago de jornal';
             transaction.set(movementRef, {
                 userId,
                 employeeId,
@@ -138,10 +154,13 @@ export const registerJournalEntry = async (
                 source: 'payroll',
                 category: journal.isOwner ? 'Remuneración del propietario' : 'Jornales / Adelantos',
                 description: label + ' · ' + journal.employeeName,
-                amount,
+                amount: voided ? 0 : amount,
                 date: entry.date,
-                createdAt: new Date().toISOString(),
-            });
+                voided,
+                payrollJournalId: ref.id,
+                payrollEntryIndex: entryIndex,
+                ...(!hadCashMovement && { createdAt: new Date().toISOString() }),
+            }, { merge: true });
         }
     }).catch(async (error: unknown) => {
         if (!(error instanceof FirebaseError) || error.code !== 'permission-denied') throw error;

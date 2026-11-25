@@ -8,6 +8,7 @@ import {
     query,
     where,
     onSnapshot,
+    runTransaction,
     type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
@@ -186,9 +187,37 @@ export const markPayrollPaid = async (
     payrollId: string,
     totalLiquidated: number
 ): Promise<void> => {
-    await updateDoc(doc(db, PAYROLLS_COLLECTION, payrollId), {
-        paidAmount: totalLiquidated,
-        status: 'paid',
+    const ref = doc(db, PAYROLLS_COLLECTION, payrollId);
+    await runTransaction(db, async (transaction) => {
+        const current = (await transaction.get(ref)).data();
+        if (!current) throw new Error('No se encuentra la liquidación anterior.');
+        if (Number(current.totalLiquidated) !== totalLiquidated) {
+            throw new Error('El total de la liquidación cambió. Revisá el nuevo saldo.');
+        }
+        if ((Number(current.paidAmount) || 0) < totalLiquidated) {
+            transaction.update(ref, { paidAmount: totalLiquidated, status: 'paid' });
+        }
+    });
+};
+
+export type LegacyPayrollFields = Pick<PayrollRecord,
+    'employeeId' | 'employeeName' | 'workId' | 'weekStart' | 'weekEnd' |
+    'daysWorked' | 'dailyRate' | 'advances' | 'reimbursements' | 'paidAmount'
+>;
+
+export const updateLegacyPayroll = async (record: PayrollRecord, fields: LegacyPayrollFields): Promise<void> => {
+    const { totalLiquidated, status } = calculatePayroll(fields);
+    const ref = doc(db, PAYROLLS_COLLECTION, record.id);
+    await runTransaction(db, async (transaction) => {
+        const current = (await transaction.get(ref)).data();
+        if (!current) throw new Error('No se encuentra la liquidación anterior.');
+        const textFields = ['employeeId', 'employeeName', 'workId', 'weekStart', 'weekEnd'] as const;
+        const numberFields = ['daysWorked', 'dailyRate', 'advances', 'reimbursements', 'paidAmount', 'totalLiquidated'] as const;
+        if (textFields.some((key) => (current[key] ?? '') !== (record[key] ?? ''))
+            || numberFields.some((key) => (Number(current[key]) || 0) !== record[key])) {
+            throw new Error('La liquidación cambió en otra sesión. Cerrá la edición y volvé a abrirla.');
+        }
+        transaction.update(ref, { ...fields, workId: fields.workId ?? '', totalLiquidated, status });
     });
 };
 

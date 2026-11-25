@@ -27,11 +27,30 @@ service cloud.firestore {
     }
 
     match /movements/{movementId} {
+      function mirrorsPayrollEntry() {
+        let movement = request.resource.data;
+        let journal = getAfter(/databases/$(database)/documents/staff/$(movement.userId)/weeklyJournals/$(movement.payrollJournalId)).data;
+        let entry = journal.entries[movement.payrollEntryIndex];
+        let reimbursement = entry.kind == 'reimbursement';
+        let label = reimbursement ? 'Reintegro' : (entry.kind == 'advance' ? 'Adelanto' : 'Pago de jornal');
+        return journal.userId == movement.userId
+          && journal.employeeId == movement.employeeId
+          && 'payroll_' + entry.id == movementId
+          && entry.cashRecorded == true
+          && movement.date == entry.date
+          && movement.voided == reimbursement
+          && movement.amount == (reimbursement ? 0 : entry.amount)
+          && movement.type == 'expense'
+          && movement.account == 'myd'
+          && movement.category == (journal.isOwner ? 'Remuneración del propietario' : 'Jornales / Adelantos')
+          && movement.description == label + ' · ' + journal.employeeName;
+      }
       allow read: if isOwner(resource.data.userId);
       allow update: if isOwner(resource.data.userId)
         && request.resource.data.userId == resource.data.userId
-        && resource.data.get('source', '') != 'payroll'
-        && request.resource.data.get('source', '') != 'payroll';
+        && ((resource.data.get('source', '') != 'payroll' && request.resource.data.get('source', '') != 'payroll')
+          || (resource.data.get('source', '') == 'payroll' && request.resource.data.source == 'payroll'
+            && request.resource.data.employeeId == resource.data.employeeId && mirrorsPayrollEntry()));
       allow delete: if isOwner(resource.data.userId) && resource.data.get('source', '') != 'payroll';
       allow create: if isOwner(request.resource.data.userId);
     }

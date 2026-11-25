@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Employee, PayrollRecord, WeeklyClosure, WeeklyJournal, Work } from '../../types';
 import { subscribeToClosures, subscribeToJournals } from '../../services/firestore/attendanceService';
@@ -8,6 +9,7 @@ import {
 import { subscribeToWorks } from '../../services/firestore/worksService';
 import { displayDate, journalsAsPayrolls, money } from '../../utils/attendance';
 import { AttendanceWeek } from './AttendanceWeek';
+import { LegacyPayrollForm } from './LegacyPayrollForm';
 
 const panel = 'space-y-4 rounded-xl border border-[#E5E7EB] bg-white p-4 sm:p-6';
 const control = 'min-h-11 min-w-0 rounded-lg border border-[#E5E7EB] bg-white px-3 text-sm';
@@ -20,6 +22,7 @@ export const EmployeesPage = () => {
 };
 
 const EmployeesWorkspace = ({ userId }: { userId: string }) => {
+    const [params] = useSearchParams();
     const [employees, setEmployees] = useState<Employee[]>();
     const [journals, setJournals] = useState<WeeklyJournal[]>();
     const [closures, setClosures] = useState<WeeklyClosure[]>();
@@ -27,6 +30,7 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
     const [works, setWorks] = useState<Work[]>();
     const [error, setError] = useState('');
     const [editing, setEditing] = useState('');
+    const [editingLegacy, setEditingLegacy] = useState('');
     const [employee, setEmployee] = useState(emptyEmployee);
     const [saving, setSaving] = useState(false);
     const busy = useRef(false);
@@ -88,13 +92,19 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
         .sort((a, b) => b.weekStart.localeCompare(a.weekStart) || a.employeeName.localeCompare(b.employeeName));
     const legacyIds = new Set(legacy?.map((item) => item.id));
     const closedWeeks = new Set(closures?.map((closure) => closure.weekStart));
+    const movement = params.get('movement');
+    const targetJournal = movement && journals?.find((journal) => journal.entries.some((entry) => 'payroll_' + entry.id === movement));
+    const target = targetJournal && movement
+        ? { weekStart: targetJournal.weekStart, employeeId: targetJournal.employeeId, entryId: movement.slice('payroll_'.length) }
+        : undefined;
 
     return (
         <div className="space-y-6 text-[#171717]">
             <h1 className="text-2xl font-bold tracking-tight">Empleados y Liquidación de Jornales</h1>
             {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {employees && journals && closures && legacy && works ? (
-                <AttendanceWeek userId={userId} employees={employees} journals={journals} closures={closures} legacy={legacy} works={works} />
+                <AttendanceWeek key={target?.entryId ?? 'all'} userId={userId} employees={employees} journals={journals}
+                    closures={closures} legacy={legacy} works={works} target={target} />
             ) : !error && <p role="status" className="text-sm text-[#717784]">Cargando asistencia y liquidaciones…</p>}
 
             <section className={panel} aria-labelledby="roster-heading">
@@ -166,12 +176,20 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
                                 <p>{record.daysWorked.toLocaleString('es-AR')} jorn. · Neto {money(record.totalLiquidated)}</p>
                                 <div>
                                     <p>Pagado {money(record.paidAmount)} · <strong>Saldo {money(pending)}</strong></p>
-                                    {oldRecord && pending > 0 && <button type="button" disabled={saving}
-                                        className={button + ' mt-1 bg-[#171717] text-[#F5C518]'}
-                                        onClick={() => void save(() => markPayrollPaid(record.id, record.totalLiquidated))}>
-                                        Saldar pago anterior
-                                    </button>}
+                                    {oldRecord && editingLegacy !== record.id && <div className="mt-2 flex flex-wrap gap-2">
+                                        <button type="button" disabled={saving} className={button + ' border border-[#E5E7EB]'}
+                                            onClick={() => setEditingLegacy(record.id)}>Editar liquidación</button>
+                                        {pending > 0 && <button type="button" disabled={saving}
+                                            className={button + ' bg-[#171717] text-[#F5C518]'}
+                                            onClick={() => void save(() => markPayrollPaid(record.id, record.totalLiquidated))}>
+                                            Saldar pago anterior
+                                        </button>}
+                                    </div>}
                                 </div>
+                                {oldRecord && editingLegacy === record.id && (
+                                    <LegacyPayrollForm record={record} employees={employees ?? []} works={works ?? []}
+                                        legacy={legacy ?? []} journals={journals ?? []} onClose={() => setEditingLegacy('')} />
+                                )}
                             </li>
                         );
                     })}

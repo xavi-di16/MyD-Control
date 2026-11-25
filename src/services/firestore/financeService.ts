@@ -2,6 +2,7 @@
 import {
     collection,
     addDoc,
+    updateDoc,
     deleteDoc,
     doc,
     query,
@@ -37,9 +38,10 @@ export const subscribeToMovements = (
     return onSnapshot(
         q,
         (snapshot) => {
-            const items: Movement[] = snapshot.docs.map((docSnap) => {
+            const items = snapshot.docs.flatMap((docSnap): Movement[] => {
                 const data = docSnap.data();
-                return {
+                if (data.source === 'payroll' && data.voided === true) return [];
+                return [{
                     id: docSnap.id,
                     userId: data.userId,
                     workId: data.workId || undefined,
@@ -52,7 +54,7 @@ export const subscribeToMovements = (
                     date: data.date || new Date().toISOString().slice(0, 10),
                     createdAt: data.createdAt || new Date().toISOString(),
                     source: data.source === 'payroll' ? 'payroll' : undefined,
-                };
+                }];
             });
             items.sort((a, b) => b.date.localeCompare(a.date));
             onData(items);
@@ -61,21 +63,28 @@ export const subscribeToMovements = (
     );
 };
 
+const movementFields = (input: Omit<CreateMovementInput, 'userId' | 'employeeId'>) => ({
+    workId: input.workId || '',
+    type: input.type,
+    account: input.account,
+    category: input.category.trim() || 'General',
+    description: input.description.trim(),
+    amount: Math.round((Number(input.amount) || 0) * 100) / 100,
+    date: input.date,
+});
+
 export const createMovement = async (input: CreateMovementInput): Promise<string> => {
     const docRef = await addDoc(collection(db, MOVEMENTS_COLLECTION), {
+        ...movementFields(input),
         userId: input.userId,
-        workId: input.workId || '',
         employeeId: input.employeeId || '',
-        type: input.type,
-        account: input.account,
-        category: input.category.trim() || 'General',
-        description: input.description.trim(),
-        amount: Math.round((Number(input.amount) || 0) * 100) / 100,
-        date: input.date,
         createdAt: new Date().toISOString(),
     });
     return docRef.id;
 };
+
+export const updateMovement = (id: string, input: Omit<CreateMovementInput, 'userId' | 'employeeId'>) =>
+    updateDoc(doc(db, MOVEMENTS_COLLECTION, id), movementFields(input));
 
 export const deleteMovement = async (movementId: string): Promise<void> => {
     await deleteDoc(doc(db, MOVEMENTS_COLLECTION, movementId));
@@ -122,19 +131,26 @@ export const subscribeToBudgets = (
     );
 };
 
+const budgetFields = (input: Omit<CreateBudgetItemInput, 'userId'>) => ({
+    workId: input.workId,
+    type: input.type,
+    description: input.description.trim(),
+    quantity: Number(input.quantity) || 1,
+    unitEstimatedCost: Number(input.unitEstimatedCost) || 0,
+    unitActualCost: Number(input.unitActualCost) || 0,
+});
+
 export const createBudgetItem = async (input: CreateBudgetItemInput): Promise<string> => {
     const docRef = await addDoc(collection(db, BUDGETS_COLLECTION), {
+        ...budgetFields(input),
         userId: input.userId,
-        workId: input.workId,
-        type: input.type,
-        description: input.description.trim(),
-        quantity: Number(input.quantity) || 1,
-        unitEstimatedCost: Number(input.unitEstimatedCost) || 0,
-        unitActualCost: Number(input.unitActualCost) || 0,
         createdAt: new Date().toISOString(),
     });
     return docRef.id;
 };
+
+export const updateBudgetItem = (id: string, input: Omit<CreateBudgetItemInput, 'userId'>) =>
+    updateDoc(doc(db, BUDGETS_COLLECTION, id), budgetFields(input));
 
 export const deleteBudgetItem = async (budgetId: string): Promise<void> => {
     await deleteDoc(doc(db, BUDGETS_COLLECTION, budgetId));

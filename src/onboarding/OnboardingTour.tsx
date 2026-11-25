@@ -37,7 +37,7 @@ const TOUR_STEPS: TourStep[] = [
         title: 'Obras y Mapa Interactivo',
         description:
             'Registra cada proyecto con su ubicación geográfica, presupuesto acordado, cobranzas y costos estimados.',
-        tip: 'Haz clic en cualquier tarjeta de obra para enfocarla en el mapa y ver su ficha técnica y margen de rentabilidad.',
+        tip: 'Tocá un pin o una obra del listado para abrir su ficha. Para ubicar una obra nueva, buscá la localidad y mové el pin.',
     },
     {
         id: 'tasks',

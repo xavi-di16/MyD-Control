@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { FirebaseError } from 'firebase/app';
 import type { AttendanceStatus, Employee, PayrollEntry, PayrollEntryKind, PayrollRecord, WeeklyClosure, WeeklyJournal, Work } from '../../types';
 import { closeWeek, registerJournalEntry, saveAttendance } from '../../services/firestore/attendanceService';
 import { addDays, displayDate, journalLabor, mondayOf, money, summarizeJournal, todayInArgentina } from '../../utils/attendance';
@@ -19,18 +20,47 @@ const entryLabels: Record<PayrollEntryKind, string> = {
     payment: 'Pago',
 };
 
-const WeeklySettlement = ({ employee, journal, weekStart, today }: {
-    employee: Employee; journal?: WeeklyJournal; weekStart: string; today: string;
+const WeeklySettlement = ({ employee, journal, weekStart, today, entryId }: {
+    employee: Employee; journal?: WeeklyJournal; weekStart: string; today: string; entryId?: string;
 }) => {
     const totals = summarizeJournal(journal);
     const [date, setDate] = useState(today);
     const [kind, setKind] = useState<PayrollEntryKind>('advance');
     const [amount, setAmount] = useState('');
     const [reference, setReference] = useState('');
+    const [editing, setEditing] = useState<PayrollEntry>();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const pending = useRef<PayrollEntry | undefined>(undefined);
     const busy = useRef(false);
+    const form = useRef<HTMLFormElement>(null);
+
+    const startEditing = (entry: PayrollEntry) => {
+        pending.current = undefined;
+        setEditing(entry);
+        setDate(entry.date);
+        setKind(entry.kind);
+        setAmount(String(entry.amount));
+        setReference(entry.reference);
+        setError('');
+        form.current?.scrollIntoView({ block: 'nearest' });
+        form.current?.querySelector('select')?.focus({ preventScroll: true });
+    };
+
+    const reset = () => {
+        pending.current = undefined;
+        setEditing(undefined);
+        setDate(today);
+        setKind('advance');
+        setAmount('');
+        setReference('');
+        setError('');
+    };
+
+    useEffect(() => {
+        if (!entryId) return;
+        document.getElementById('payroll-entry-' + entryId)?.scrollIntoView({ block: 'center' });
+    }, [entryId]);
 
     const register = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -39,18 +69,25 @@ const WeeklySettlement = ({ employee, journal, weekStart, today }: {
         const previous = pending.current;
         const sameEntry = previous && previous.kind === kind && previous.date === date
             && previous.amount === input.amount && previous.reference === input.reference;
-        const entry = sameEntry ? previous : { ...input, id: crypto.randomUUID() };
+        const entry = { ...input, id: editing?.id ?? (sameEntry ? previous.id : crypto.randomUUID()) };
         pending.current = entry;
         busy.current = true;
         setSaving(true);
         setError('');
         try {
-            await registerJournalEntry(employee.userId, employee.id, weekStart, entry);
+            await registerJournalEntry(employee.userId, employee.id, weekStart, entry, editing);
             pending.current = undefined;
-            setAmount('');
-            setReference('');
+            if (editing) reset();
+            else {
+                setAmount('');
+                setReference('');
+            }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'No se pudo registrar el movimiento.');
+            if (err instanceof FirebaseError && err.code === 'permission-denied') {
+                setError('Firestore rechazó el cambio. Verificá que estén publicadas las reglas actualizadas de liquidación y Caja MYD.');
+            } else {
+                setError(err instanceof Error ? err.message : 'No se pudo guardar el movimiento.');
+            }
         } finally {
             busy.current = false;
             setSaving(false);
@@ -76,7 +113,8 @@ const WeeklySettlement = ({ employee, journal, weekStart, today }: {
             </dl>
             {totals.weekendGross > 0 && <p className="text-sm">Extra del sábado y domingo incluido en el bruto: <strong>{money(totals.weekendGross)}</strong></p>}
             {totals.overpaid > 0 && <p className="text-sm text-amber-800">Importe a favor por pagos o adelantos: <strong>{money(totals.overpaid)}</strong></p>}
-            <form onSubmit={register} className="space-y-2">
+            <form ref={form} onSubmit={register} className="space-y-2">
+                {editing && <p className="text-sm font-bold">Editar {entryLabels[editing.kind].toLocaleLowerCase('es')} del {displayDate(editing.date)}</p>}
                 <fieldset disabled={saving} className="grid grid-cols-2 gap-2 md:grid-cols-4">
                     <label className="grid min-w-0 gap-1 text-xs font-semibold">
                         Movimiento
@@ -99,14 +137,23 @@ const WeeklySettlement = ({ employee, journal, weekStart, today }: {
                 </fieldset>
                 <p className="text-xs text-[#717784]">Los pagos y adelantos registrados se cargan automáticamente en Caja MYD.</p>
                 {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-                <button type="submit" className={primary} disabled={saving}>{saving ? 'Guardando…' : 'Registrar movimiento'}</button>
+                <div className="flex flex-wrap gap-2">
+                    <button type="submit" className={primary} disabled={saving}>
+                        {saving ? 'Guardando…' : editing ? 'Guardar movimiento' : 'Registrar movimiento'}
+                    </button>
+                    {editing && <button type="button" className={control} disabled={saving} onClick={reset}>Cancelar edición</button>}
+                </div>
             </form>
             {!!journal?.entries.length && (
                 <ul className="divide-y divide-[#E5E7EB] text-sm" aria-label="Movimientos de la liquidación">
                     {journal.entries.map((entry) => (
-                        <li key={entry.id} className="flex flex-wrap justify-between gap-1 py-2">
+                        <li key={entry.id} id={'payroll-entry-' + entry.id}
+                            className={'flex flex-wrap items-center justify-between gap-1 py-2 ' + (entryId === entry.id ? 'bg-[#FEF3C7]' : '')}>
                             <span>{displayDate(entry.date)} · {entryLabels[entry.kind]}{entry.reference && ' · ' + entry.reference}</span>
-                            <strong>{money(entry.amount)}</strong>
+                            <div className="flex items-center gap-2">
+                                <strong>{money(entry.amount)}</strong>
+                                <button type="button" className={control + ' font-semibold'} disabled={saving} onClick={() => startEditing(entry)}>Editar</button>
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -115,16 +162,17 @@ const WeeklySettlement = ({ employee, journal, weekStart, today }: {
     );
 };
 
-export const AttendanceWeek = ({ userId, employees, journals, closures, legacy, works }: {
+export const AttendanceWeek = ({ userId, employees, journals, closures, legacy, works, target }: {
     userId: string;
     employees: Employee[];
     journals: WeeklyJournal[];
     closures: WeeklyClosure[];
     legacy: PayrollRecord[];
     works: Work[];
+    target?: { weekStart: string; employeeId: string; entryId: string };
 }) => {
     const today = todayInArgentina();
-    const [date, setDate] = useState(today);
+    const [date, setDate] = useState(target?.weekStart ?? today);
     const [saving, setSaving] = useState<string[]>([]);
     const [error, setError] = useState('');
     const operations = useRef(new Set<string>());
@@ -281,11 +329,13 @@ export const AttendanceWeek = ({ userId, employees, journals, closures, legacy, 
                                         </>
                                     )}
                                     {(!previousPeriods.length || totals.daysWorked > 0 || !!journal?.entries.length) && (
-                                        <details className="rounded-lg bg-[#F5F6F8] p-3">
+                                        <details open={target?.employeeId === employee.id && target.weekStart === weekStart ? true : undefined}
+                                            className="rounded-lg bg-[#F5F6F8] p-3">
                                             <summary className="cursor-pointer text-sm font-semibold">
                                                 {previousPeriods.length ? 'Liquidación adicional' : 'Liquidación'} · saldo {money(totals.pendingBalance)}
                                             </summary>
-                                            <WeeklySettlement key={weekStart} employee={employee} journal={journal} weekStart={weekStart} today={today} />
+                                            <WeeklySettlement key={weekStart} employee={employee} journal={journal} weekStart={weekStart} today={today}
+                                                entryId={target?.employeeId === employee.id && target.weekStart === weekStart ? target.entryId : undefined} />
                                         </details>
                                     )}
                                 </article>

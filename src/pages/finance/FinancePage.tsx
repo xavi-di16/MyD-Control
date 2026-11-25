@@ -1,11 +1,13 @@
 // src/pages/finance/FinancePage.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Movement, MovementType, AccountType, Work } from '../../types';
 import {
     subscribeToMovements,
     createMovement,
     deleteMovement,
+    updateMovement,
 } from '../../services/firestore/financeService';
 import { subscribeToWorks } from '../../services/firestore/worksService';
 
@@ -15,6 +17,9 @@ export const FinancePage: React.FC = () => {
     const [works, setWorks] = useState<Work[]>([]);
     const [accountFilter, setAccountFilter] = useState<'all' | AccountType>('all');
     const [error, setError] = useState<string | null>(null);
+    const [editing, setEditing] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const form = useRef<HTMLFormElement>(null);
 
     const [type, setType] = useState<MovementType>('expense');
     const [account, setAccount] = useState<AccountType>('myd');
@@ -42,24 +47,50 @@ export const FinancePage: React.FC = () => {
         };
     }, [user]);
 
+    const startEditing = (movement: Movement) => {
+        setEditing(movement.id);
+        setType(movement.type);
+        setAccount(movement.account);
+        setCategory(movement.category);
+        setDescription(movement.description);
+        setAmount(String(movement.amount));
+        setDate(movement.date);
+        setWorkId(movement.workId ?? '');
+        setError(null);
+        form.current?.scrollIntoView({ block: 'start' });
+        form.current?.querySelector('select')?.focus({ preventScroll: true });
+    };
+
+    const cancelEditing = () => {
+        setEditing(null);
+        setDescription('');
+        setAmount('');
+        setType('expense');
+        setAccount('myd');
+        setCategory('Materiales');
+        setWorkId('');
+        setDate(new Date().toISOString().slice(0, 10));
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!user || !description.trim() || !amount) return;
+        if (!user || !description.trim() || !amount || saving) return;
+        setSaving(true);
+        setError(null);
         try {
-            await createMovement({
-                userId: user.uid,
-                workId: workId || undefined,
-                type,
-                account,
-                category,
-                description,
-                amount: Number(amount),
-                date,
-            });
-            setDescription('');
-            setAmount('');
+            const input = { workId, type, account, category, description, amount: Number(amount), date };
+            if (editing) {
+                await updateMovement(editing, input);
+                cancelEditing();
+            } else {
+                await createMovement({ userId: user.uid, ...input });
+                setDescription('');
+                setAmount('');
+            }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error al registrar movimiento.');
+            setError(err instanceof Error ? err.message : 'Error al guardar movimiento.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -155,18 +186,21 @@ export const FinancePage: React.FC = () => {
 
             {/* Formulario de Registro de Movimiento */}
             <form
+                ref={form}
                 onSubmit={handleSubmit}
-                className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
+                className="scroll-mt-20 bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
             >
                 <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3">
                     <span className="w-2 h-4 rounded-xs bg-[#F5C518]" />
-                    <h2 className="text-base font-bold text-[#171717]">Registrar Movimiento de Caja</h2>
+                    <h2 className="text-base font-bold text-[#171717]">{editing ? 'Editar movimiento de caja' : 'Registrar Movimiento de Caja'}</h2>
+                    {editing && <button type="button" disabled={saving} onClick={cancelEditing} className="ml-auto text-sm font-semibold hover:underline">Cancelar edición</button>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Tipo</label>
+                        <label htmlFor="finance-type" className="block text-xs font-semibold text-[#171717] mb-1">Tipo</label>
                         <select
+                            id="finance-type"
                             value={type}
                             onChange={(e) => setType(e.target.value as MovementType)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#171717]"
@@ -176,8 +210,9 @@ export const FinancePage: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Cuenta</label>
+                        <label htmlFor="finance-account" className="block text-xs font-semibold text-[#171717] mb-1">Cuenta</label>
                         <select
+                            id="finance-account"
                             value={account}
                             onChange={(e) => setAccount(e.target.value as AccountType)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#171717]"
@@ -187,8 +222,9 @@ export const FinancePage: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Categoría</label>
+                        <label htmlFor="finance-category" className="block text-xs font-semibold text-[#171717] mb-1">Categoría</label>
                         <select
+                            id="finance-category"
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
@@ -199,11 +235,13 @@ export const FinancePage: React.FC = () => {
                             <option value="Herramientas / Inversión">Herramientas / Inversión</option>
                             <option value="Pago de Deuda">Pago de Deuda</option>
                             <option value="Hogar / Personal">Hogar / Personal</option>
+                            {!['Cobranza Obra', 'Materiales', 'Jornales / Adelantos', 'Herramientas / Inversión', 'Pago de Deuda', 'Hogar / Personal'].includes(category) && <option>{category}</option>}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Importe ($) *</label>
+                        <label htmlFor="finance-amount" className="block text-xs font-semibold text-[#171717] mb-1">Importe ($) *</label>
                         <input
+                            id="finance-amount"
                             type="number"
                             min="0"
                             step="any"
@@ -215,8 +253,10 @@ export const FinancePage: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Fecha</label>
+                        <label htmlFor="finance-date" className="block text-xs font-semibold text-[#171717] mb-1">Fecha</label>
                         <input
+                            id="finance-date"
+                            required
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
@@ -224,15 +264,17 @@ export const FinancePage: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                        <label htmlFor="finance-workId" className="block text-xs font-semibold text-[#171717] mb-1">
                             Obra (Opcional)
                         </label>
                         <select
+                            id="finance-workId"
                             value={workId}
                             onChange={(e) => setWorkId(e.target.value)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         >
                             <option value="">General</option>
+                            {workId && !works.some((work) => work.id === workId) && <option value={workId}>Obra archivada</option>}
                             {works.map((w) => (
                                 <option key={w.id} value={w.id}>
                                     {w.name}
@@ -241,10 +283,11 @@ export const FinancePage: React.FC = () => {
                         </select>
                     </div>
                     <div className="sm:col-span-3 lg:col-span-5">
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                        <label htmlFor="finance-description" className="block text-xs font-semibold text-[#171717] mb-1">
                             Concepto / Descripción detallada *
                         </label>
                         <input
+                            id="finance-description"
                             type="text"
                             required
                             value={description}
@@ -256,9 +299,10 @@ export const FinancePage: React.FC = () => {
                     <div className="flex items-end">
                         <button
                             type="submit"
+                            disabled={saving}
                             className="w-full py-2 bg-[#F5C518] hover:bg-[#E0AD00] text-[#171717] font-bold rounded-lg text-xs transition cursor-pointer"
                         >
-                            Guardar
+                            {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Guardar'}
                         </button>
                     </div>
                 </div>
@@ -314,13 +358,15 @@ export const FinancePage: React.FC = () => {
                                             {mov.type === 'income' ? '+' : '-'}${mov.amount.toLocaleString('es-AR')}
                                         </td>
                                         <td className="py-3 px-3 text-right">
-                                            {mov.source === 'payroll' ? <span className="text-[#717784]">Liquidación</span> : <button
+                                            {mov.source === 'payroll' ? <Link to={'/employees?movement=' + encodeURIComponent(mov.id)} className="font-semibold hover:underline">Editar en Liquidación</Link> : <>
+                                            <button type="button" disabled={saving} onClick={() => startEditing(mov)} className="mr-3 font-semibold hover:underline">Editar</button>
+                                            <button
                                                 type="button"
                                                 onClick={() => deleteMovement(mov.id)}
                                                 className="text-red-600 hover:text-red-800 font-semibold hover:underline cursor-pointer"
                                             >
                                                 Eliminar
-                                            </button>}
+                                            </button></>}
                                         </td>
                                     </tr>
                                 ))}

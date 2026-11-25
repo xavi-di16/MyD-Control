@@ -39,9 +39,10 @@ export const TasksPage: React.FC = () => {
                 title: values.title,
                 description: values.description,
                 priority: values.priority,
-                dueDate: values.dueDate || undefined,
-                workId: values.workId || undefined,
-                employeeId: values.employeeId || undefined,
+                status: values.status ?? editingTask.status,
+                dueDate: values.dueDate,
+                workId: values.workId,
+                employeeId: values.employeeId,
             });
             setEditingTask(null);
         } else {

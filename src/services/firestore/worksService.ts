@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import type { Work, WorkStatus } from '../../types';
+import { mapPosition } from '../../utils/coordinates';
 
 const WORKS_COLLECTION = 'works';
 
@@ -21,6 +22,7 @@ export interface CreateWorkInput {
     client: string;
     description: string;
     address: string;
+    locality?: string;
     latitude: number;
     longitude: number;
     agreedBudget: number;
@@ -43,6 +45,7 @@ export const subscribeToWorks = (
         (snapshot) => {
             const items: Work[] = snapshot.docs.map((docSnap) => {
                 const data = docSnap.data();
+                const position = mapPosition(data.latitude, data.longitude);
                 return {
                     id: docSnap.id,
                     userId: data.userId,
@@ -50,8 +53,9 @@ export const subscribeToWorks = (
                     client: data.client || '',
                     description: data.description || '',
                     address: data.address || '',
-                    latitude: Number(data.latitude) || -31.4201,
-                    longitude: Number(data.longitude) || -64.1888,
+                    locality: data.locality || '',
+                    latitude: position?.[0] ?? null,
+                    longitude: position?.[1] ?? null,
                     agreedBudget: Number(data.agreedBudget) || 0,
                     collectedAmount: Number(data.collectedAmount) || 0,
                     estimatedCosts: Number(data.estimatedCosts) || 0,
@@ -69,17 +73,21 @@ export const subscribeToWorks = (
 };
 
 export const createWork = async (input: CreateWorkInput): Promise<string> => {
+    const position = mapPosition(input.latitude, input.longitude);
+    if (!position) throw new Error('Marcá la ubicación de la obra en el mapa.');
     const docRef = await addDoc(collection(db, WORKS_COLLECTION), {
         ...input,
         name: input.name.trim(),
         client: input.client.trim(),
         description: input.description.trim(),
         address: input.address.trim(),
-        latitude: Number(input.latitude),
-        longitude: Number(input.longitude),
+        locality: input.locality?.trim() ?? '',
+        latitude: position[0],
+        longitude: position[1],
         agreedBudget: Number(input.agreedBudget) || 0,
         collectedAmount: Number(input.collectedAmount) || 0,
         estimatedCosts: Number(input.estimatedCosts) || 0,
+        estimatedEndDate: input.estimatedEndDate ?? '',
         createdAt: new Date().toISOString(),
     });
     return docRef.id;

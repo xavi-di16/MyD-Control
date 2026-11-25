@@ -29,8 +29,9 @@ export interface Work {
     client: string;
     description: string;
     address: string;
-    latitude: number;
-    longitude: number;
+    locality?: string;
+    latitude: number | null;
+    longitude: number | null;
     agreedBudget: number;
     collectedAmount: number;
     estimatedCosts: number;
@@ -104,6 +105,7 @@ export interface PayrollEntry {
     amount: number;
     date: string;
     reference: string;
+    cashRecorded?: boolean;
 }
 
 export interface WeeklyJournal {

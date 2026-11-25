@@ -1,5 +1,5 @@
 // src/pages/budgets/BudgetsPage.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import type { BudgetItem, WeeklyJournal, Work } from '../../types';
 import { subscribeToJournals } from '../../services/firestore/attendanceService';
@@ -7,6 +7,7 @@ import {
     subscribeToBudgets,
     createBudgetItem,
     deleteBudgetItem,
+    updateBudgetItem,
 } from '../../services/firestore/financeService';
 import { subscribeToWorks } from '../../services/firestore/worksService';
 import { journalLabor, money } from '../../utils/attendance';
@@ -18,6 +19,9 @@ export const BudgetsPage: React.FC = () => {
     const [journals, setJournals] = useState<WeeklyJournal[]>([]);
     const [selectedWorkId, setSelectedWorkId] = useState<string>('all');
     const [error, setError] = useState<string | null>(null);
+    const [editing, setEditing] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const form = useRef<HTMLFormElement>(null);
 
     const [workId, setWorkId] = useState('');
     const [type, setType] = useState<'material' | 'labor' | 'other'>('material');
@@ -49,25 +53,56 @@ export const BudgetsPage: React.FC = () => {
         };
     }, [user]);
 
+    const startEditing = (item: BudgetItem) => {
+        setEditing(item.id);
+        setWorkId(item.workId);
+        setType(item.type);
+        setDescription(item.description);
+        setQuantity(String(item.quantity));
+        setUnitEstimatedCost(String(item.unitEstimatedCost));
+        setUnitActualCost(String(item.unitActualCost));
+        setError(null);
+        form.current?.scrollIntoView({ block: 'start' });
+        form.current?.querySelector('select')?.focus({ preventScroll: true });
+    };
+
+    const resetForm = () => {
+        setEditing(null);
+        setDescription('');
+        setQuantity('1');
+        setUnitEstimatedCost('');
+        setUnitActualCost('');
+    };
+
+    const cancelEditing = () => {
+        resetForm();
+        setWorkId(works[0]?.id ?? '');
+        setType('material');
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!user || !workId || !description.trim()) return;
+        if (!user || !workId || !description.trim() || saving) return;
+        setSaving(true);
+        setError(null);
         try {
-            await createBudgetItem({
-                userId: user.uid,
-                workId,
-                type,
-                description,
+            const input = {
+                workId, type, description,
                 quantity: Number(quantity) || 1,
                 unitEstimatedCost: Number(unitEstimatedCost) || 0,
                 unitActualCost: Number(unitActualCost) || 0,
-            });
-            setDescription('');
-            setQuantity('1');
-            setUnitEstimatedCost('');
-            setUnitActualCost('');
+            };
+            if (editing) {
+                await updateBudgetItem(editing, input);
+                cancelEditing();
+            } else {
+                await createBudgetItem({ userId: user.uid, ...input });
+                resetForm();
+            }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error al agregar ítem de presupuesto.');
+            setError(err instanceof Error ? err.message : 'Error al guardar el ítem de presupuesto.');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -165,24 +200,28 @@ export const BudgetsPage: React.FC = () => {
 
             {/* Formulario de Alta de Ítem */}
             <form
+                ref={form}
                 onSubmit={handleSubmit}
-                className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
+                className="scroll-mt-20 bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs space-y-4"
             >
                 <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3">
                     <span className="w-2 h-4 rounded-xs bg-[#F5C518]" />
-                    <h2 className="text-base font-bold text-[#171717]">Agregar Insumo o Mano de Obra</h2>
+                    <h2 className="text-base font-bold text-[#171717]">{editing ? 'Editar ítem de presupuesto' : 'Agregar Insumo o Mano de Obra'}</h2>
+                    {editing && <button type="button" disabled={saving} onClick={cancelEditing} className="ml-auto text-sm font-semibold hover:underline">Cancelar edición</button>}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Obra *</label>
+                        <label htmlFor="budgets-workId" className="block text-xs font-semibold text-[#171717] mb-1">Obra *</label>
                         <select
+                            id="budgets-workId"
                             required
                             value={workId}
                             onChange={(e) => setWorkId(e.target.value)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
                         >
                             <option value="">Seleccionar...</option>
+                            {editing && workId && !works.some((work) => work.id === workId) && <option value={workId}>Obra archivada</option>}
                             {works.map((w) => (
                                 <option key={w.id} value={w.id}>
                                     {w.name}
@@ -191,8 +230,9 @@ export const BudgetsPage: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Rubro</label>
+                        <label htmlFor="budgets-type" className="block text-xs font-semibold text-[#171717] mb-1">Rubro</label>
                         <select
+                            id="budgets-type"
                             value={type}
                             onChange={(e) => setType(e.target.value as 'material' | 'labor' | 'other')}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs text-[#171717]"
@@ -203,10 +243,11 @@ export const BudgetsPage: React.FC = () => {
                         </select>
                     </div>
                     <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                        <label htmlFor="budgets-description" className="block text-xs font-semibold text-[#171717] mb-1">
                             Descripción del ítem *
                         </label>
                         <input
+                            id="budgets-description"
                             type="text"
                             required
                             value={description}
@@ -216,8 +257,9 @@ export const BudgetsPage: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">Cantidad</label>
+                        <label htmlFor="budgets-quantity" className="block text-xs font-semibold text-[#171717] mb-1">Cantidad</label>
                         <input
+                            id="budgets-quantity"
                             type="number"
                             min="1"
                             step="any"
@@ -227,24 +269,28 @@ export const BudgetsPage: React.FC = () => {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                        <label htmlFor="budgets-unitEstimatedCost" className="block text-xs font-semibold text-[#171717] mb-1">
                             Unit. Estimado ($)
                         </label>
                         <input
+                            id="budgets-unitEstimatedCost"
                             type="number"
                             min="0"
+                            step="0.01"
                             value={unitEstimatedCost}
                             onChange={(e) => setUnitEstimatedCost(e.target.value)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-mono-num text-[#171717]"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-[#171717] mb-1">
+                        <label htmlFor="budgets-unitActualCost" className="block text-xs font-semibold text-[#171717] mb-1">
                             Unit. Real ($)
                         </label>
                         <input
+                            id="budgets-unitActualCost"
                             type="number"
                             min="0"
+                            step="0.01"
                             value={unitActualCost}
                             onChange={(e) => setUnitActualCost(e.target.value)}
                             className="w-full px-3 py-2 bg-[#F5F6F8] border border-[#E5E7EB] rounded-lg text-xs font-mono-num text-[#171717]"
@@ -253,10 +299,10 @@ export const BudgetsPage: React.FC = () => {
                     <div className="flex items-end">
                         <button
                             type="submit"
-                            disabled={works.length === 0}
+                            disabled={saving || (!editing && !works.length)}
                             className="w-full py-2 bg-[#F5C518] hover:bg-[#E0AD00] disabled:opacity-50 text-[#171717] font-bold rounded-lg text-xs transition cursor-pointer"
                         >
-                            Agregar Ítem
+                            {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar Ítem'}
                         </button>
                     </div>
                 </div>
@@ -319,6 +365,7 @@ export const BudgetsPage: React.FC = () => {
                                                 {diff >= 0 ? '+' : ''}${diff.toLocaleString('es-AR')}
                                             </td>
                                             <td className="py-3 px-3 text-right">
+                                                <button type="button" disabled={saving} onClick={() => startEditing(it)} className="mr-3 font-semibold hover:underline">Editar</button>
                                                 <button
                                                     type="button"
                                                     onClick={() => deleteBudgetItem(it.id)}
