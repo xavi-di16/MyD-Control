@@ -8,6 +8,7 @@ import {
     query,
     where,
     onSnapshot,
+    type Query,
     type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
@@ -36,13 +37,11 @@ export interface UpdateTaskInput {
     employeeId?: string;
 }
 
-export const subscribeToUserTasks = (
-    userId: string,
+const subscribeToTasks = (
+    q: Query,
     onData: (tasks: Task[]) => void,
     onError: (error: Error) => void
 ): Unsubscribe => {
-    const q = query(collection(db, TASKS_COLLECTION), where('userId', '==', userId));
-
     return onSnapshot(
         q,
         (snapshot) => {
@@ -70,6 +69,15 @@ export const subscribeToUserTasks = (
         }
     );
 };
+
+export const subscribeToUserTasks = (
+    userId: string, onData: (tasks: Task[]) => void, onError: (error: Error) => void
+) => subscribeToTasks(query(collection(db, TASKS_COLLECTION), where('userId', '==', userId)), onData, onError);
+
+export const subscribeToAssignedTasks = (
+    ownerId: string, employeeId: string, onData: (tasks: Task[]) => void, onError: (error: Error) => void
+) => subscribeToTasks(query(collection(db, TASKS_COLLECTION),
+    where('userId', '==', ownerId), where('employeeId', '==', employeeId)), onData, onError);
 
 export const createTask = async (input: CreateTaskInput): Promise<string> => {
     const payload = {

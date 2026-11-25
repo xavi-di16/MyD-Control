@@ -1,6 +1,12 @@
 {
+  "functions": { "api/calendar/google.ts": { "maxDuration": 60 } },
   "rewrites": [
     { "source": "/works/:path*", "destination": "/index.html" },
-    { "source": "/employees", "destination": "/index.html" }
+    { "source": "/employees", "destination": "/index.html" },
+    { "source": "/employee-enrollment/:code", "destination": "/index.html" },
+    { "source": "/tasks", "destination": "/index.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/budgets/:path*", "destination": "/index.html" },
+    { "source": "/reports/:path*", "destination": "/index.html" }
   ]
 }

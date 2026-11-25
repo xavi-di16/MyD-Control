@@ -1,5 +1,6 @@
 // src/pages/budgets/BudgetsPage.tsx
 import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { BudgetItem, WeeklyJournal, Work } from '../../types';
 import { subscribeToJournals } from '../../services/firestore/attendanceService';
@@ -147,7 +148,9 @@ export const BudgetsPage: React.FC = () => {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <Link to="/budgets/document" state={{ workId: selectedWorkId === 'all' ? '' : selectedWorkId }}
+                        className="rounded-lg bg-[#F5C518] px-4 py-2.5 text-sm font-bold">Preparar presupuesto PDF</Link>
                     <span className="text-xs font-semibold text-[#717784]">Filtrar por obra:</span>
                     <select
                         value={selectedWorkId}

@@ -37,3 +37,28 @@ MYD_CONTROL/
 │       └── calculations.ts        # Funciones puras para cálculo de jornales y rentabilidad
 ├── firestore.rules                # Reglas de aislamiento de datos por userId
 └── vite.config.ts                 # Configuración de Vite, Tailwind CSS y Vitest
+## Perfiles, PDFs y Google Calendar
+
+Publicá `firestore.rules` en el proyecto de Firebase que usa producción antes de activar esta versión. Las reglas permiten que una cuenta de empleado lea sus tareas personales y las asignadas a su ficha. Los empleados pueden cambiar el estado de las tareas asignadas. La información de administración queda disponible en las cuentas administradoras.
+
+- **Empleados.** En la nómina, elegí **Invitar** y compartí el enlace privado con la persona. El enlace habilita una ficha, vence en siete días y se puede usar una sola vez. El empleado crea su cuenta o inicia sesión y confirma la ficha al abrirlo.
+- **Presupuestos.** La opción **Preparar presupuesto PDF** permite cargar datos e ítems de una obra y editar las etapas, el precio y la forma de pago antes de imprimir.
+- **Cierres.** La opción **Preparar informe PDF** carga el período y las observaciones. El resumen financiero interno se agrega a pedido. En ambos editores, **Imprimir / Guardar PDF** abre el diálogo del navegador con la plantilla original.
+
+### Activar los avisos en Google Calendar
+
+Habilitá Google Calendar API en Google Cloud y creá un cliente OAuth de tipo **Aplicación web**. Registrá `https://myd-control.vercel.app/api/calendar/google` como URI de redirección autorizada para producción. Si la pantalla de consentimiento está en modo de prueba, agregá la cuenta de Sergio a los usuarios de prueba.
+
+Configurá estas variables de servidor en Vercel.
+
+| Variable | Valor |
+| --- | --- |
+| `GOOGLE_CALENDAR_CLIENT_ID` | ID del cliente OAuth web |
+| `GOOGLE_CALENDAR_CLIENT_SECRET` | Secreto del cliente OAuth web |
+| `GOOGLE_CALENDAR_REDIRECT_URI` | La misma URI autorizada en Google Cloud |
+| `GOOGLE_CALENDAR_TOKEN_KEY` | Una clave aleatoria de 32 bytes en Base64, por ejemplo con `openssl rand -base64 32` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | JSON de una cuenta de servicio del proyecto de producción con acceso de lectura y escritura a Firestore |
+
+El servidor usa el proyecto indicado en `VITE_FIREBASE_PROJECT_ID`. Ingresá los valores sensibles en Vercel. Conservá la misma clave de cifrado mientras existan conexiones activas.
+
+Después de desplegar, Sergio autoriza su cuenta desde **Tareas → Conectar mi Google Calendar**. Las tareas pendientes con fecha que estén sin asignar o asignadas a su ficha **Propietario** generan eventos a las 09:00 de Argentina y un aviso 30 minutos antes. Las modificaciones de las tareas se reflejan en el calendario al sincronizar. Los avisos de eventos ya sincronizados los entrega Google Calendar aun con MyD Control cerrado.

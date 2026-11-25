@@ -8,6 +8,7 @@ import type { Task, TaskPriority, Work, Employee } from '../../types';
 import { subscribeToWorks } from '../../services/firestore/worksService';
 import { subscribeToEmployees } from '../../services/firestore/employeesService';
 import { sendTasksSummaryEmail } from '../../services/email/emailService';
+import { GoogleCalendarPanel } from './GoogleCalendarPanel';
 
 export const TasksPage: React.FC = () => {
     const { user } = useAuth();
@@ -95,6 +96,8 @@ export const TasksPage: React.FC = () => {
     employees.forEach((emp) => {
         employeesMap[emp.id] = emp.name;
     });
+    const ownerIds = new Set(employees.filter((employee) => employee.isOwner).map((employee) => employee.id));
+    const calendarTasks = tasks.filter((task) => !task.employeeId || ownerIds.has(task.employeeId));
 
     return (
         <div className="space-y-6">
@@ -117,6 +120,8 @@ export const TasksPage: React.FC = () => {
                     {sendingEmail ? 'Enviando resumen...' : 'Enviar Resumen por Email'}
                 </button>
             </div>
+
+            {user && <GoogleCalendarPanel key={user.uid} user={user} tasks={calendarTasks} loading={loading} />}
 
             {emailFeedback && (
                 <div

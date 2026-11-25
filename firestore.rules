@@ -11,19 +11,106 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function employeeProfile(uid) {
+      return /databases/$(database)/documents/employeeProfiles/$(uid);
+    }
+
+    function isBusinessOwner(userId) {
+      return isOwner(userId) && !exists(employeeProfile(request.auth.uid));
+    }
+
+    function isActiveEmployee(ownerId, employeeId) {
+      let employee = get(/databases/$(database)/documents/employees/$(employeeId)).data;
+      return employee.userId == ownerId && employee.get('active', true) == true;
+    }
+
+    function assignedToEmployee(task) {
+      let profile = get(employeeProfile(request.auth.uid)).data;
+      return task.userId == profile.ownerId && task.employeeId == profile.employeeId
+        && isActiveEmployee(profile.ownerId, profile.employeeId);
+    }
+
+    function supportsTaskStatus(value) {
+      return value in ['pending', 'in_progress', 'completed'];
+    }
+
+    function employeeOwnTask(data) {
+      return data.get('workId', '') == '' && data.get('employeeId', '') == '';
+    }
+
     match /tasks/{taskId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read: if isOwner(resource.data.userId)
+        || (isAuthenticated() && exists(employeeProfile(request.auth.uid)) && assignedToEmployee(resource.data));
+      allow create: if isOwner(request.resource.data.userId)
+        && (isBusinessOwner(request.resource.data.userId) || employeeOwnTask(request.resource.data));
+      allow update: if request.resource.data.userId == resource.data.userId
+        && ((isOwner(resource.data.userId) && (isBusinessOwner(resource.data.userId) || employeeOwnTask(request.resource.data)))
+          || (isAuthenticated() && exists(employeeProfile(request.auth.uid)) && assignedToEmployee(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && supportsTaskStatus(request.resource.data.status)));
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    function employeeInvitation(code) {
+      return /databases/$(database)/documents/employeeInvitations/$(code);
+    }
+
+    function employeeAccount(ownerId, employeeId) {
+      return /databases/$(database)/documents/staff/$(ownerId)/employeeAccounts/$(employeeId);
+    }
+
+    function validInvitation(invite) {
+      return invite.claimedBy == '' && request.time < invite.expiresAt
+        && isActiveEmployee(invite.ownerId, invite.employeeId);
+    }
+
+    match /employeeInvitations/{code} {
+      allow get: if isAuthenticated()
+        && (isBusinessOwner(resource.data.ownerId) || isOwner(resource.data.claimedBy)
+          || (validInvitation(resource.data) && !exists(employeeProfile(request.auth.uid))));
+      allow create: if isBusinessOwner(request.resource.data.ownerId)
+        && request.resource.data.keys().hasOnly(['ownerId', 'employeeId', 'employeeName', 'expiresAt', 'claimedBy'])
+        && code.matches('[a-f0-9]{48}')
+        && validInvitation(request.resource.data)
+        && request.resource.data.expiresAt <= request.time + duration.value(8, 'd')
+        && request.resource.data.employeeName == get(/databases/$(database)/documents/employees/$(request.resource.data.employeeId)).data.name
+        && !exists(employeeAccount(request.resource.data.ownerId, request.resource.data.employeeId));
+      allow update: if isAuthenticated() && validInvitation(resource.data)
+        && request.resource.data.claimedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy'])
+        && getAfter(employeeProfile(request.auth.uid)).data.invitation == code;
+    }
+
+    match /employeeProfiles/{uid} {
+      function hasClaimedInvitation(profile) {
+        let invite = get(employeeInvitation(profile.invitation)).data;
+        return validInvitation(invite) && invite.ownerId == profile.ownerId && invite.ownerId != uid
+          && invite.employeeId == profile.employeeId && invite.employeeName == profile.employeeName
+          && getAfter(employeeInvitation(profile.invitation)).data.claimedBy == uid
+          && getAfter(employeeAccount(profile.ownerId, profile.employeeId)).data.uid == uid;
+      }
+      allow get: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['ownerId', 'employeeId', 'employeeName', 'invitation'])
+        && hasClaimedInvitation(request.resource.data);
+    }
+
+    match /staff/{ownerId}/employeeAccounts/{employeeId} {
+      allow read: if isBusinessOwner(ownerId);
+      allow create: if isAuthenticated() && !exists(employeeProfile(request.auth.uid))
+        && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == request.auth.uid
+        && getAfter(employeeProfile(request.auth.uid)).data.ownerId == ownerId
+        && getAfter(employeeProfile(request.auth.uid)).data.employeeId == employeeId;
     }
 
     match /employees/{employeeId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read, update, delete: if isBusinessOwner(resource.data.userId);
+      allow create: if isBusinessOwner(request.resource.data.userId);
     }
 
     match /works/{workId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read, update, delete: if isBusinessOwner(resource.data.userId);
+      allow create: if isBusinessOwner(request.resource.data.userId);
     }
 
     match /movements/{movementId} {
@@ -45,36 +132,36 @@ service cloud.firestore {
           && movement.category == (journal.isOwner ? 'Remuneración del propietario' : 'Jornales / Adelantos')
           && movement.description == label + ' · ' + journal.employeeName;
       }
-      allow read: if isOwner(resource.data.userId);
-      allow update: if isOwner(resource.data.userId)
+      allow read: if isBusinessOwner(resource.data.userId);
+      allow update: if isBusinessOwner(resource.data.userId)
         && request.resource.data.userId == resource.data.userId
         && ((resource.data.get('source', '') != 'payroll' && request.resource.data.get('source', '') != 'payroll')
           || (resource.data.get('source', '') == 'payroll' && request.resource.data.source == 'payroll'
             && request.resource.data.employeeId == resource.data.employeeId && mirrorsPayrollEntry()));
-      allow delete: if isOwner(resource.data.userId) && resource.data.get('source', '') != 'payroll';
-      allow create: if isOwner(request.resource.data.userId);
+      allow delete: if isBusinessOwner(resource.data.userId) && resource.data.get('source', '') != 'payroll';
+      allow create: if isBusinessOwner(request.resource.data.userId);
     }
 
     match /payrolls/{payrollId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read, update, delete: if isBusinessOwner(resource.data.userId);
+      allow create: if isBusinessOwner(request.resource.data.userId);
     }
 
     match /budgets/{budgetId} {
-      allow read, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
+      allow read, update, delete: if isBusinessOwner(resource.data.userId);
+      allow create: if isBusinessOwner(request.resource.data.userId);
     }
 
     match /staff/{userId}/weeklyJournals/{journalId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId)
+      allow read: if isBusinessOwner(userId);
+      allow create, update: if isBusinessOwner(userId)
         && request.resource.data.userId == userId
         && journalId == request.resource.data.weekStart + '_' + request.resource.data.employeeId;
     }
 
     match /staff/{userId}/weeklyClosures/{weekStart} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.weekStart == weekStart;
+      allow read: if isBusinessOwner(userId);
+      allow create: if isBusinessOwner(userId) && request.resource.data.weekStart == weekStart;
     }
   }
 }

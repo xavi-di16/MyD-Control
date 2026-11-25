@@ -7,6 +7,7 @@ import {
     createEmployee, markPayrollPaid, subscribeToEmployees, subscribeToLegacyPayrolls, updateEmployee,
 } from '../../services/firestore/employeesService';
 import { subscribeToWorks } from '../../services/firestore/worksService';
+import { createEmployeeInvitation, watchLinkedEmployees } from '../../services/firestore/employeeProfilesService';
 import { displayDate, journalsAsPayrolls, money } from '../../utils/attendance';
 import { AttendanceWeek } from './AttendanceWeek';
 import { LegacyPayrollForm } from './LegacyPayrollForm';
@@ -33,6 +34,9 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
     const [editingLegacy, setEditingLegacy] = useState('');
     const [employee, setEmployee] = useState(emptyEmployee);
     const [saving, setSaving] = useState(false);
+    const [linked, setLinked] = useState<Set<string>>();
+    const [invite, setInvite] = useState<{ name: string; url: string }>();
+    const [copied, setCopied] = useState(false);
     const busy = useRef(false);
 
     useEffect(() => {
@@ -43,6 +47,7 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
             subscribeToClosures(userId, setClosures, onError),
             subscribeToLegacyPayrolls(userId, setLegacy, onError),
             subscribeToWorks(userId, setWorks, onError),
+            watchLinkedEmployees(userId, setLinked, onError),
         ];
         return () => subscriptions.forEach((unsubscribe) => unsubscribe());
     }, [userId]);
@@ -140,6 +145,16 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
                     </div>
                 </form>
 
+                {invite && <div className="space-y-2 rounded-lg bg-[#FEF3C7] p-3">
+                    <label className="grid gap-1 text-sm font-bold">Invitación para {invite.name}
+                        <input className={control + ' w-full'} readOnly value={invite.url} onFocus={(event) => event.currentTarget.select()} />
+                    </label>
+                    <p className="text-xs">Compartí este enlace en privado. Se puede usar una sola vez y vence en 7 días.</p>
+                    <button type="button" className={button + ' bg-white'} onClick={() => {
+                        void navigator.clipboard?.writeText(invite.url).then(() => setCopied(true)).catch(() => setCopied(false));
+                    }}>{copied ? 'Enlace copiado' : 'Copiar enlace'}</button>
+                </div>}
+
                 <ul className="divide-y divide-[#E5E7EB]">
                     {employees?.map((person) => (
                         <li key={person.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -147,7 +162,13 @@ const EmployeesWorkspace = ({ userId }: { userId: string }) => {
                                 <p className="font-bold">{person.name}{person.isOwner && ' · Propietario'}</p>
                                 <p className="text-xs text-[#717784]">{person.role} · {money(person.dailyRate)} / día{!person.active && ' · Inactivo'}</p>
                             </div>
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
+                                {linked?.has(person.id) ? <span className="px-2 text-xs text-[#525866]">Cuenta vinculada</span> :
+                                    linked && person.active && !person.isOwner && <button type="button" disabled={saving}
+                                        className={button + ' border border-[#E5E7EB]'} onClick={() => void save(async () => {
+                                            setCopied(false);
+                                            setInvite({ name: person.name, url: await createEmployeeInvitation(person) });
+                                        })}>Invitar</button>}
                                 <button type="button" disabled={saving} className={button + ' border border-[#E5E7EB]'} onClick={() => edit(person)}>Editar</button>
                                 <button type="button" disabled={saving} className={button}
                                     onClick={() => void save(() => updateEmployee(person.id, { active: !person.active }))}>

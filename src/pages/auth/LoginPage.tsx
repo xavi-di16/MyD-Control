@@ -6,7 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 export const LoginPage: React.FC = () => {
     const { user, loginWithEmail, registerWithEmail, loginWithGoogle, error, clearError } = useAuth();
     const { state } = useLocation();
-    const [isRegistering, setIsRegistering] = useState(false);
+    const employeeSignup = typeof state?.from?.pathname === 'string' && state.from.pathname.startsWith('/employee-enrollment/');
+    const [isRegistering, setIsRegistering] = useState(employeeSignup);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -149,11 +150,11 @@ export const LoginPage: React.FC = () => {
                             ACCESO ADMINISTRATIVO
                         </span>
                         <h2 className="text-2xl font-bold text-[#171717] tracking-tight">
-                            {isRegistering ? 'Crear cuenta de Administrador' : 'Iniciar sesión en MYD Control'}
+                            {isRegistering ? (employeeSignup ? 'Crear cuenta de empleado' : 'Crear cuenta de Administrador') : 'Iniciar sesión en MYD Control'}
                         </h2>
                         <p className="text-[#717784] text-xs mt-1">
                             {isRegistering
-                                ? 'Configura tus credenciales para administrar obras, caja y personal.'
+                                ? (employeeSignup ? 'Creá tu cuenta para vincularla con tu ficha de empleado.' : 'Configura tus credenciales para administrar obras, caja y personal.')
                                 : 'Ingresa tus credenciales para acceder al panel operativo y financiero.'}
                         </p>
                     </div>
@@ -266,7 +267,7 @@ export const LoginPage: React.FC = () => {
                     </button>
 
                     <p className="text-center text-xs text-[#717784] mt-6">
-                        {isRegistering ? '¿Ya tienes una cuenta registrada?' : '¿Necesitas registrar un nuevo administrador?'}{' '}
+                        {isRegistering ? '¿Ya tienes una cuenta registrada?' : (employeeSignup ? '¿Todavía no tenés cuenta?' : '¿Necesitas registrar un nuevo administrador?')}{' '}
                         <button
                             type="button"
                             onClick={toggleMode}

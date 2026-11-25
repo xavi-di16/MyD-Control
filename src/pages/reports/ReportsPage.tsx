@@ -1,6 +1,6 @@
 // src/pages/reports/ReportsPage.tsx
 import React, { useEffect, useState } from 'react';
-import { jsPDF } from 'jspdf';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Movement, PayrollRecord, Work, Task, WeeklyJournal } from '../../types';
 import { subscribeToMovements } from '../../services/firestore/financeService';
@@ -74,78 +74,20 @@ export const ReportsPage: React.FC = () => {
 
     const netBalance = income - mydExpense - householdExpense;
 
-    const handleDownloadPdf = () => {
-        const doc = new jsPDF();
+    const reportText = [
+        'CIERRE SEMANAL',
+        `Período: ${startDate} al ${endDate}`,
+        observations.trim(),
+    ].filter(Boolean).join('\n\n');
 
-        // Membrete Corporativo MYD Control (#171717 + franja #F5C518)
-        doc.setFillColor(23, 23, 23);
-        doc.rect(0, 0, 210, 32, 'F');
-        doc.setFillColor(245, 197, 24);
-        doc.rect(0, 32, 210, 2.5, 'F');
-
-        doc.setTextColor(245, 197, 24);
-        doc.setFontSize(18);
-        doc.text('MYD CONTROL', 14, 16);
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(10);
-        doc.text('INFORME EJECUTIVO DE CIERRE SEMANAL Y ESTADO FINANCIERO', 14, 24);
-
-        // Metadatos del reporte
-        doc.setTextColor(23, 23, 23);
-        doc.setFontSize(10);
-        doc.text(`Período auditado: ${startDate} al ${endDate}`, 14, 44);
-        doc.text(`Responsable / Administrador: ${user?.email || 'MYD Admin'}`, 14, 50);
-
-        // Bloque 1: Resumen Financiero
-        doc.setFillColor(245, 246, 248);
-        doc.rect(14, 56, 182, 42, 'F');
-        doc.setFontSize(12);
-        doc.text('1. Balance Financiero del Período', 18, 64);
-        doc.setFontSize(10);
-        doc.text(`- Ingresos y cobranzas registradas: +$${income.toLocaleString('es-AR')}`, 20, 72);
-        doc.text(`- Egresos operativos MYD: -$${mydExpense.toLocaleString('es-AR')}`, 20, 78);
-        doc.text(`- Gastos domésticos registrados: -$${householdExpense.toLocaleString('es-AR')}`, 20, 84);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`- SALDO NETO DE CAJA: $${netBalance.toLocaleString('es-AR')}`, 20, 92);
-        doc.setFont('helvetica', 'normal');
-
-        // Bloque 2: Estado Operativo
-        doc.setFontSize(12);
-        doc.text('2. Estado de Jornales, Obras y Tareas', 14, 108);
-        doc.setFontSize(10);
-        doc.text(
-            `- Saldos pendientes de pago a empleados: $${totalPayrollPending.toLocaleString('es-AR')}`,
-            18,
-            116
-        );
-        doc.text(
-            `- Cobranzas pendientes de clientes por obras: $${totalPendingCollections.toLocaleString('es-AR')}`,
-            18,
-            122
-        );
-        doc.text(
-            `- Obras en ejecución: ${works.filter((w) => w.status === 'active').length} de ${works.length} totales`,
-            18,
-            128
-        );
-        doc.text(
-            `- Tareas operativas completadas: ${tasks.filter((t) => t.status === 'completed').length} de ${tasks.length}`,
-            18,
-            134
-        );
-        doc.text(`- Costo de asistencia del período: empleados ${money(employeeLabor)} / propietario ${money(ownerLabor)}`, 18, 140);
-
-        if (observations.trim()) {
-            doc.setFontSize(12);
-            doc.text('3. Observaciones de Cierre Administrativo', 14, 154);
-            doc.setFontSize(10);
-            const splitObs = doc.splitTextToSize(observations.trim(), 180);
-            doc.text(splitObs, 18, 162);
-        }
-
-        doc.save(`MYD-Control-Cierre-${startDate}-a-${endDate}.pdf`);
-    };
+    const internalSummary = [
+        'RESUMEN INTERNO DEL PERÍODO',
+        `Ingresos: ${money(income)}`,
+        `Egresos MYD: ${money(mydExpense)} · Gastos domésticos: ${money(householdExpense)}`,
+        `Saldo neto: ${money(netBalance)}`,
+        `Jornales pendientes: ${money(totalPayrollPending)} · Cobranzas pendientes: ${money(totalPendingCollections)}`,
+        `Costo de asistencia: empleados ${money(employeeLabor)} / propietario ${money(ownerLabor)}`,
+    ].join('\n');
 
     const handleSendTasksEmail = async () => {
         if (!user?.email) {
@@ -195,13 +137,13 @@ export const ReportsPage: React.FC = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2.5">
-                    <button
-                        type="button"
-                        onClick={handleDownloadPdf}
+                    <Link
+                        to="/reports/document"
+                        state={{ reportText, internalSummary }}
                         className="px-4 py-2.5 bg-[#F5C518] hover:bg-[#E0AD00] text-[#171717] font-bold rounded-lg text-xs transition shadow-2xs cursor-pointer"
                     >
-                        Descargar Informe PDF
-                    </button>
+                        Preparar informe PDF
+                    </Link>
                     <button
                         type="button"
                         onClick={handleSendTasksEmail}
